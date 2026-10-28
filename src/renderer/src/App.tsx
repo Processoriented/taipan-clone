@@ -1,7 +1,12 @@
+import { GameProvider } from './game/GameProvider'
 import TaipanGame from './game/TaipanGame'
 
 function App(): React.JSX.Element {
-  return <TaipanGame />
+  return (
+    <GameProvider>
+      <TaipanGame />
+    </GameProvider>
+  )
 }
 
 export default App

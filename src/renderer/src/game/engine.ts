@@ -9,6 +9,8 @@ import dm7 from '../assets/dm7.gif'
 import dm8 from '../assets/dm8.gif'
 import dm9 from '../assets/dm9.gif'
 import dm10 from '../assets/dm10.gif'
+import { createInitialState, type GameState, type Line } from '../../../shared/save'
+import { gameMarkup } from './markup'
 
 const damageGifs = [dm0, dm1, dm2, dm3, dm4, dm5, dm6, dm7, dm8, dm9, dm10]
 
@@ -19,9 +21,13 @@ const Mm = M.min
 const Mp = M.pow
 const Mr = M.random
 
-type Line = number | string
-type Choice = [number, Line, ...string[]]
 type Field = [HTMLElement | null, number, string]
+
+export type GameHooks = {
+  persist: (state: GameState) => void
+  markDone: (state: GameState) => void
+  flush: (state: GameState) => void
+}
 
 const IDS = [
   'S2',
@@ -82,76 +88,47 @@ const IDS = [
   'SCORE1f'
 ]
 
-export function startGame(root: HTMLElement): () => void {
+export function startGame(root: HTMLElement, state: GameState, hooks: GameHooks): () => void {
   const pending = new Set<number>()
-  const elements: Record<string, HTMLElement> = {}
-  for (const id of IDS) {
-    const el = root.querySelector('#' + id)
-    if (!(el instanceof HTMLElement)) throw new Error('Missing #' + id)
-    elements[id] = el
+  let resumed = state.viewHtml !== ''
+  if (resumed) {
+    root.innerHTML = state.viewHtml
+    if (
+      state.resumeLine !== '' &&
+      state.goto === '' &&
+      state.allow === false &&
+      state.get === false &&
+      state.fname === false
+    ) {
+      state.goto = state.resumeLine
+      state.delay = 0
+      state.resumeLine = ''
+    }
+  } else {
+    root.innerHTML = gameMarkup
   }
 
-  let delay = 0
-  let goto: Line = ''
-  let allow: Choice | false = false
-  let get: Choice | false = false
+  const elements = collectElements()
+
+  function collectElements(): Record<string, HTMLElement> {
+    const found: Record<string, HTMLElement> = {}
+    for (const id of IDS) {
+      const el = root.querySelector('#' + id)
+      if (!(el instanceof HTMLElement)) {
+        if (!resumed) throw new Error('Missing #' + id)
+        Object.assign(state, createInitialState())
+        root.innerHTML = gameMarkup
+        resumed = false
+        return collectElements()
+      }
+      found[id] = el
+    }
+    return found
+  }
+
   let input: Field = [null, 0, '']
   const cursor: [HTMLElement | null, boolean] = [null, true]
-  let fname: number | false = false
-  let prices = ''
 
-  let MO = 0
-  let YE = 1860
-  let SC = 60
-  let BA = 0
-  let LO: number | string = 1
-  let TI = 1
-  let WC = 10000
-  let WS = 0
-  let EC = 20
-  let ED = 0.5
-  let F1 = 0
-  let DM = 0
-  let SP = 0
-  let WW = 0
-  let D = 0
-  let DW = 0
-  let CA = 0
-  let MW = 0
-  let GN = 0
-  let FQ = 0
-  const ST: number[][] = [
-    [0, 0, 0, 0],
-    [0, 0, 0, 0]
-  ]
-  const BP: (string | number)[][] = [
-    ['<span class="cap">O</span>pium', 11, 16, 15, 14, 12, 10, 13],
-    ['<span class="cap">S</span>ilk', 11, 14, 15, 16, 10, 13, 12],
-    ['<span class="cap">A</span>rms', 12, 16, 10, 11, 13, 14, 15],
-    ['<span class="cap">G</span>eneral <span class="cap">C</span>argo', 10, 11, 12, 13, 14, 15, 16]
-  ]
-  let LI = 0
-  let LI$ = 0
-  let SN = 0
-  let S0 = 0
-  let SS = 0
-  let SK = 0
-  let BT = 0
-  let LC: number | string = 0
-  let CMD = ''
-  let OK = 0
-  let IK = 0
-  const AM: number[][] = [[], [], [], [], [], [], [], [], [], []]
-  const CP: number[] = []
-  let BR = 0
-  let item = 0
-  let afford = 0
-  let wh1 = 0
-  let wh2 = 0
-  let CG = 0
-  let DQ = 0
-  let YEARSf = 0
-  let MONTHSf = 0
   const LT = Ml(10)
   const comma = /(\d+)(\d{3})/
   const cities = [
@@ -191,7 +168,6 @@ export function startGame(root: HTMLElement): () => void {
     '<span class="cap">S</span>hall <span class="cap">I</span> <span class="cap">B</span>uy, <span class="cap">S</span>ell, <span class="cap">V</span>isit bank, <span class="cap">T</span>ransfer cargo,<br/>or <span class="cap">Q</span>uit trading?',
     '<span class="cap">S</span>hall <span class="cap">I</span> <span class="cap">B</span>uy, <span class="cap">S</span>ell, or <span class="cap">Q</span>uit trading?'
   ]
-  let mesid = 0
   const t$ = '<span class="cap">T</span>aipan'
   const capt$ =
     '&nbsp;&nbsp;<span class="cap">C</span>aptain\'s <span class="cap">R</span>eport:<br/><br/>'
@@ -211,13 +187,26 @@ export function startGame(root: HTMLElement): () => void {
     return el instanceof HTMLElement ? el : null
   }
 
+  function touch(endGame = false): void {
+    state.inputText = input[2]
+    state.viewHtml = root.innerHTML
+    if (endGame) hooks.markDone(state)
+    else hooks.persist(state)
+  }
+
+  function onBeforeUnload(): void {
+    state.inputText = input[2]
+    state.viewHtml = root.innerHTML
+    hooks.flush(state)
+  }
+
   function fnTimer(): void {
     if (cursor[0] != null) {
       cursor[1] = !cursor[1]
       cursor[0].style.visibility = cursor[1] == true ? 'visible' : 'hidden'
     }
-    if (delay > 0) delay--
-    if (goto != '' && delay == 0) fnMain(goto)
+    if (state.delay > 0) state.delay--
+    if (state.goto != '' && state.delay == 0) fnMain(state.goto)
   }
 
   function fnKeyInput(): void {
@@ -230,8 +219,8 @@ export function startGame(root: HTMLElement): () => void {
     if (value < 1e6) return value.toString().replace(comma, '$1,$2')
     const II = Mf(Ml(value) / LT)
     const IJ = Mf(II / 3) * 3
-    const IK = Mp(10, II - 2)
-    const scaled = (Mf(value / IK + 0.5) * IK) / Mp(10, IJ)
+    const scale = Mp(10, II - 2)
+    const scaled = (Mf(value / scale + 0.5) * scale) / Mp(10, IJ)
     let text: string
     if (scaled < 10) text = scaled.toFixed(2)
     else if (scaled < 100) text = scaled.toFixed(1)
@@ -248,43 +237,43 @@ export function startGame(root: HTMLElement): () => void {
   }
 
   function portPrice(good: number): number {
-    return Number(BP[good][LO as number])
+    return Number(state.BP[good][state.LO as number])
   }
 
   function fRP(): void {
-    elements['MW'].innerHTML = String(MW)
-    elements['GN'].innerHTML = String(GN)
-    elements['CA'].innerHTML = fnFC(CA)
-    elements['BA'].innerHTML = fnFC(BA)
-    elements['DW'].innerHTML = fnFC(DW)
-    WW = 100 - Mf((DM / SC) * 100)
-    elements['DM'].innerHTML = sstatus[Mf(WW / 20)] + (WW < 100 ? ': ' : ':') + WW
+    elements['MW'].innerHTML = String(state.MW)
+    elements['GN'].innerHTML = String(state.GN)
+    elements['CA'].innerHTML = fnFC(state.CA)
+    elements['BA'].innerHTML = fnFC(state.BA)
+    elements['DW'].innerHTML = fnFC(state.DW)
+    state.WW = 100 - Mf((state.DM / state.SC) * 100)
+    elements['DM'].innerHTML = sstatus[Mf(state.WW / 20)] + (state.WW < 100 ? ': ' : ':') + state.WW
   }
 
   function fnAddShips(): void {
     for (let i = 0; i < 10; i++) {
-      if (SS < SN && AM[i][0] == 0) {
-        AM[i][0] = fR(EC) + 20
-        AM[i][1] = 0
-        SS++
+      if (state.SS < state.SN && state.AM[i][0] == 0) {
+        state.AM[i][0] = fR(state.EC) + 20
+        state.AM[i][1] = 0
+        state.SS++
         elements['sf' + i].innerHTML = '<div class="ship"></div><div class="ff"></div>'
-      } else if (AM[i][0] == 0) {
+      } else if (state.AM[i][0] == 0) {
         elements['sf' + i].innerHTML = ''
       }
     }
-    elements['plus'].innerHTML = SS < SN ? '+' : ''
+    elements['plus'].innerHTML = state.SS < state.SN ? '+' : ''
   }
 
   function fnRemoveShips(): void {
     for (let i = 9; i >= 0; i--) {
-      if (SS > SN && AM[i][0]) {
-        AM[i][0] = 0
-        AM[i][1] = 0
-        SS--
+      if (state.SS > state.SN && state.AM[i][0]) {
+        state.AM[i][0] = 0
+        state.AM[i][1] = 0
+        state.SS--
         elements['sf' + i].innerHTML = ''
       }
     }
-    if (SS <= SN) elements['plus'].innerHTML = ''
+    if (state.SS <= state.SN) elements['plus'].innerHTML = ''
   }
 
   function fnFire(ship: number, vh: string): void {
@@ -297,6 +286,7 @@ export function startGame(root: HTMLElement): () => void {
   }
 
   function fnSink(ship: number, px: number, sinkDelay: number): void {
+    state.resumeLine = 5800
     if (px == 0) {
       px = 1
       later(() => fnSink(ship, px, sinkDelay), 500)
@@ -308,7 +298,8 @@ export function startGame(root: HTMLElement): () => void {
     if (px < 84) later(() => fnSink(ship, px, sinkDelay), sinkDelay)
     else {
       elements['sf' + ship].innerHTML = ''
-      goto = 5800
+      state.resumeLine = ''
+      state.goto = 5800
     }
   }
 
@@ -318,7 +309,7 @@ export function startGame(root: HTMLElement): () => void {
   }
 
   function onKeyDown(e: KeyboardEvent): void {
-    delay = 0
+    state.delay = 0
     let key = e.charCode || e.keyCode
     if (key == 8) {
       e.preventDefault()
@@ -326,35 +317,37 @@ export function startGame(root: HTMLElement): () => void {
         input[2] = input[2].substring(0, input[2].length - 1)
         input[1]--
         if (input[0]) input[0].innerHTML = input[2]
+        touch()
       }
-    } else if (get) {
+    } else if (state.get) {
       if (key >= 96 && key <= 105) key -= 48
       const inchar = String.fromCharCode(key)
-      for (let n = 2; n < get.length; n++) {
-        if (inchar == get[n]) {
+      for (let n = 2; n < state.get.length; n++) {
+        if (inchar == state.get[n]) {
           input[2] = inchar
           input[1] = 1
           cursor[0] = null
-          fnMain(get[1])
+          fnMain(state.get[1])
         }
       }
-    } else if (key == 13 && allow && input[1] > 0) {
+    } else if (key == 13 && state.allow && input[1] > 0) {
       cursor[0] = null
-      fnMain(allow[1])
-    } else if (allow) {
+      fnMain(state.allow[1])
+    } else if (state.allow) {
       if (key >= 96 && key <= 105) key -= 48
       const inchar = String.fromCharCode(key)
-      for (let n = 2; n < allow.length; n++) {
-        if (input[1] < allow[0] && inchar == allow[n]) {
+      for (let n = 2; n < state.allow.length; n++) {
+        if (input[1] < state.allow[0] && inchar == state.allow[n]) {
           input[2] += inchar
           input[1]++
           if (input[0]) input[0].innerHTML = input[2]
+          touch()
         }
       }
-    } else if (fname) {
-      const limit = fname
+    } else if (state.fname) {
+      const limit = state.fname
       if (key == 13 && input[1] > 0) {
-        fname = false
+        state.fname = false
         fnMain(10130)
       }
       if (key < 32 || key > 120) return
@@ -364,6 +357,7 @@ export function startGame(root: HTMLElement): () => void {
         input[2] += inchar
         input[1]++
         if (input[0]) input[0].innerHTML = input[2]
+        touch()
       }
     }
   }
@@ -377,65 +371,66 @@ export function startGame(root: HTMLElement): () => void {
   // The cases below fall through on purpose. That is the original line-numbered flow.
   /* eslint-disable no-fallthrough */
   function fnMain(line: Line): void {
-    goto = ''
+    state.goto = ''
+    let endGame = false
     let amount: number
     let W: number
     let i: number
     let shot = 0
     switch (line) {
       case 1000:
-        BA += Mf(BA * 0.005)
-        DW += Mf(DW * 0.1)
-        TI++
-        MO++
-        if (MO == 12) {
-          MO = 0
-          YE++
-          EC += 10
-          ED += 0.5
+        state.BA += Mf(state.BA * 0.005)
+        state.DW += Mf(state.DW * 0.1)
+        state.TI++
+        state.MO++
+        if (state.MO == 12) {
+          state.MO = 0
+          state.YE++
+          state.EC += 10
+          state.ED += 0.5
           for (i = 0; i < 4; i++) {
-            for (let j = 1; j < 8; j++) BP[i][j] = (BP[i][j] as number) + fR(2)
+            for (let j = 1; j < 8; j++) state.BP[i][j] = (state.BP[i][j] as number) + fR(2)
           }
         }
       case 1030:
         fRP()
-        elements['month0'].innerHTML = months[MO][0]
-        elements['month1'].innerHTML = months[MO][1]
-        elements['year'].innerHTML = String(YE)
-        if (LO != 1) {
-          goto = 1500
-          delay = 0
+        elements['month0'].innerHTML = months[state.MO][0]
+        elements['month1'].innerHTML = months[state.MO][1]
+        elements['year'].innerHTML = String(state.YE)
+        if (state.LO != 1) {
+          state.goto = 1500
+          state.delay = 0
           break
         }
-        if (LI == 0 && CA > 0) {
-          WW = 0
+        if (state.LI == 0 && state.CA > 0) {
+          state.WW = 0
           W = 1.8
-          if (TI > 12) {
-            WW = fR(1000 * TI) + 1000 * TI
+          if (state.TI > 12) {
+            state.WW = fR(1000 * state.TI) + 1000 * state.TI
             W = 1
           }
-          LI$ = fR(CA / W) + WW
+          state.LI$ = fR(state.CA / W) + state.WW
           elements['message'].innerHTML =
             comp$ +
             '<span class="cap">L</span>i <span class="cap">Y</span>uen asks ' +
-            fnFC(LI$) +
+            fnFC(state.LI$) +
             ' in donation<br />to the temple of <span class="cap">T</span>in <span class="cap">H</span>au, the <span class="cap">S</span>ea<br /><span class="cap">G</span>oddess. <span class="cap">W</span>ill you pay? <span id="input"></span><span id="cursor">_</span>'
-          allow = [1, 1060, 'Y', 'N']
+          state.allow = [1, 1060, 'Y', 'N']
           fnKeyInput()
           break
         }
       case 1060:
         if (line == 1060 && input[2] == 'Y') {
-          CA -= LI$
-          if (CA >= 0) {
-            LI = 1
-            elements['CA'].innerHTML = fnFC(CA)
+          state.CA -= state.LI$
+          if (state.CA >= 0) {
+            state.LI = 1
+            elements['CA'].innerHTML = fnFC(state.CA)
           } else {
             elements['message'].innerHTML =
               comp$ +
               t$ +
               ', you do not have enough cash!!<br /><br /><span class="cap">D</span>o you want <span class="cap">E</span>lder <span class="cap">B</span>rother <span class="cap">W</span>u to make up<br />the difference for you? <span id="input"></span><span id="cursor">_</span>'
-            allow = [1, 1080, 'Y', 'N']
+            state.allow = [1, 1080, 'Y', 'N']
             fnKeyInput()
             break
           }
@@ -443,12 +438,12 @@ export function startGame(root: HTMLElement): () => void {
       case 1080:
         if (line == 1080) {
           if (input[2] == 'Y') {
-            DW -= CA
-            LI = 1
+            state.DW -= state.CA
+            state.LI = 1
             elements['message'].innerHTML =
               comp$ +
               '<span class="cap">E</span>lder <span class="cap">B</span>rother has given <span class="cap">L</span>i <span class="cap">Y</span>uen the <br />difference between what he wanted and<br />your cash on hand and added the same<br />amount to your debt.'
-            elements['DW'].innerHTML = fnFC(DW)
+            elements['DW'].innerHTML = fnFC(state.DW)
           } else {
             elements['message'].innerHTML =
               comp$ +
@@ -456,153 +451,155 @@ export function startGame(root: HTMLElement): () => void {
               t$ +
               '.'
           }
-          CA = 0
-          elements['CA'].innerHTML = fnFC(CA)
+          state.CA = 0
+          elements['CA'].innerHTML = fnFC(state.CA)
           fnKeyInput()
-          delay = 10
-          goto = 1120
+          state.delay = 10
+          state.goto = 1120
           break
         }
       case 1120:
-        if (LO == 1 && DM > 0) {
+        if (state.LO == 1 && state.DM > 0) {
           elements['message'].innerHTML =
             comp$ +
             t$ +
             ', <span class="cap">M</span>c <span class="cap">H</span>enry from the <span class="cap">H</span>ong <span class="cap">K</span>ong<br /><span class="cap">S</span>hipyards has arrived! <span class="cap">H</span>e says, \'I see<br />ye\'ve a wee bit of damage to yer ship.<br /><span class="cap">W</span>ill ye be wanting repairs?\' <span id="input"></span><span id="cursor">_</span>'
-          allow = [1, 1130, 'Y', 'N']
+          state.allow = [1, 1130, 'Y', 'N']
           fnKeyInput()
           break
         } else {
-          goto = 1210
-          delay = 0
+          state.goto = 1210
+          state.delay = 0
           break
         }
       case 1130:
         if (input[2] == 'N') {
-          goto = 1210
-          delay = 0
+          state.goto = 1210
+          state.delay = 0
           break
         }
       case 1140:
-        BR = Mf(((fR((60 * (TI + 3)) / 4) + (25 * (TI + 3)) / 4) * SC) / 50)
+        state.BR = Mf(((fR((60 * (state.TI + 3)) / 4) + (25 * (state.TI + 3)) / 4) * state.SC) / 50)
       case 1145:
         elements['message'].innerHTML =
           comp$ +
           '<span class="cap">O</span>ch, \'tis a pity to be ' +
-          Mf((DM / SC) * 100) +
+          Mf((state.DM / state.SC) * 100) +
           '% damaged.<br /><span class="cap">W</span>e can fix yer whole ship for ' +
-          fnFC(BR) +
+          fnFC(state.BR) +
           '<br />or make partial repairs if you wish.<br /><span class="cap">H</span>ow much will ye spend? <span id="input"></span><span id="cursor">_</span>'
-        allow = [9, 1150, 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        state.allow = [9, 1150, 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
         fnKeyInput()
         break
       case 1150:
         if (input[2] == 'A') {
-          amount = BR
-          if (CA < amount) amount = CA
+          amount = state.BR
+          if (state.CA < amount) amount = state.CA
         } else amount = +input[2]
-        if (CA < amount) {
+        if (state.CA < amount) {
           elements['message'].innerHTML = comp$ + t$ + ', you do not have enough cash!!'
           fnKeyInput()
           cursor[0] = null
-          delay = 6
-          goto = 1145
+          state.delay = 6
+          state.goto = 1145
           break
         }
-        WW = Mf((DM * amount) / BR)
-        DM = WW <= DM ? DM - WW : 0
-        CA -= amount
+        state.WW = Mf((state.DM * amount) / state.BR)
+        state.DM = state.WW <= state.DM ? state.DM - state.WW : 0
+        state.CA -= amount
         fRP()
       case 1210:
       case 1300:
-        if (LO == 1) {
+        if (state.LO == 1) {
           elements['message'].innerHTML =
             comp$ +
             '<span class="cap">D</span>o you have business with <span class="cap">E</span>lder <span class="cap">B</span>rother<br /><span class="cap">W</span>u, the moneylender? <span id="input"></span><span id="cursor">_</span>'
-          allow = [1, 1310, 'Y', 'N']
+          state.allow = [1, 1310, 'Y', 'N']
           fnKeyInput()
           break
         } else {
-          goto = 1500
-          delay = 0
+          state.goto = 1500
+          state.delay = 0
           break
         }
       case 1310:
         if (input[2] == 'N') {
-          goto = 1500
-          delay = 0
+          state.goto = 1500
+          state.delay = 0
           break
         }
       case 1360:
-        if (DW == 0 || CA == 0) {
-          goto = 1400
-          delay = 0
+        if (state.DW == 0 || state.CA == 0) {
+          state.goto = 1400
+          state.delay = 0
           break
         }
       case 1370:
         elements['message'].innerHTML =
           comp$ +
           '<span class="cap">H</span>ow much do you wish to repay<br />him? <span id="input"></span><span id="cursor">_</span>'
-        allow = [9, 1380, 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        state.allow = [9, 1380, 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
         fnKeyInput()
         break
       case 1380:
-        amount = input[2] == 'A' ? CA : +input[2]
-        if (CA >= amount) {
-          CA -= amount
-          DW -= amount
+        amount = input[2] == 'A' ? state.CA : +input[2]
+        if (state.CA >= amount) {
+          state.CA -= amount
+          state.DW -= amount
           fRP()
         } else {
           elements['message'].innerHTML +=
-            '<br /><br /><br />' + t$ + ', you have only ' + fnFC(CA) + '<br />in cash.'
+            '<br /><br /><br />' + t$ + ', you have only ' + fnFC(state.CA) + '<br />in cash.'
           fnKeyInput()
-          goto = 1370
-          delay = 10
+          state.goto = 1370
+          state.delay = 10
           break
         }
       case 1400:
         elements['message'].innerHTML =
           comp$ +
           '<span class="cap">H</span>ow much do you wish to<br />borrow? <span id="input"></span><span id="cursor">_</span>'
-        allow = [9, 1420, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        state.allow = [9, 1420, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
         fnKeyInput()
         break
       case 1420:
         i = +input[2]
-        if (CA * 2 >= i) {
-          CA += i
-          DW += i
+        if (state.CA * 2 >= i) {
+          state.CA += i
+          state.DW += i
           fRP()
         } else {
           elements['message'].innerHTML +=
             '<br /><br /><br /><span class="cap">H</span>e won\'t loan you so much, ' + t$ + '!'
-          goto = 1400
-          delay = 10
+          state.goto = 1400
+          state.delay = 10
           break
         }
       case 1500:
-        SP = Mf(1000 + fR((1000 * (TI + 5)) / 6)) * (Mf(SC / 50) * (DM > 0 ? 1 : 0) + 1)
-        if (CA >= SP && fR(4) == 0) {
-          goto = 'NEWSHIP1'
-          delay = 0
+        state.SP =
+          Mf(1000 + fR((1000 * (state.TI + 5)) / 6)) *
+          (Mf(state.SC / 50) * (state.DM > 0 ? 1 : 0) + 1)
+        if (state.CA >= state.SP && fR(4) == 0) {
+          state.goto = 'NEWSHIP1'
+          state.delay = 0
           break
         }
       case 'R-NEWSHIP':
-        SP = Mf(fR((1000 * (TI + 5)) / 6) + 500)
-        if (CA >= SP && fR(3) == 0) {
-          goto = 'NEWGUN1'
-          delay = 0
+        state.SP = Mf(fR((1000 * (state.TI + 5)) / 6) + 500)
+        if (state.CA >= state.SP && fR(3) == 0) {
+          state.goto = 'NEWGUN1'
+          state.delay = 0
           break
         }
       case 'R-NEWGUN':
-        if (ST[1][0] > 0 && Number(LO) > 1 && fR(18) == 0) {
-          i = Mf(CA / 1.8)
-          MW += ST[1][0]
-          elements['MW'].innerHTML = String(MW)
-          ST[1][0] = 0
+        if (state.ST[1][0] > 0 && Number(state.LO) > 1 && fR(18) == 0) {
+          i = Mf(state.CA / 1.8)
+          state.MW += state.ST[1][0]
+          elements['MW'].innerHTML = String(state.MW)
+          state.ST[1][0] = 0
           elements['h0'].innerHTML = '0'
-          CA -= i
-          elements['CA'].innerHTML = fnFC(CA)
+          state.CA -= i
+          elements['CA'].innerHTML = fnFC(state.CA)
           elements['message'].innerHTML =
             comp$ +
             'Bad Joss!!<br />The local authorities have seized your<br /><span class="cap">O</span>pium cargo and have also fined you<br />' +
@@ -611,93 +608,93 @@ export function startGame(root: HTMLElement): () => void {
             t$ +
             '!'
           fnKeyInput()
-          delay = 18
-          goto = 'R-BUSTED'
+          state.delay = 18
+          state.goto = 'R-BUSTED'
           break
         }
       case 'R-BUSTED':
       case 2100:
-        for (i = 0; i < 4; i++) CP[i] = Mf((portPrice(i) / 2) * (fR(3) + 1) * Mp(10, 3 - i))
-        LI = Mm(LI, fR(20))
-        if (LI == 0 && Number(LO) > 1 && fR(4)) {
+        for (i = 0; i < 4; i++) state.CP[i] = Mf((portPrice(i) / 2) * (fR(3) + 1) * Mp(10, 3 - i))
+        state.LI = Mm(state.LI, fR(20))
+        if (state.LI == 0 && Number(state.LO) > 1 && fR(4)) {
           elements['message'].innerHTML =
             comp$ +
             '<span class="cap">L</span>i <span class="cap">Y</span>uen has sent a lieutenant,<br />' +
             t$ +
             '. <span class="cap">H</span>e says his admiral wishes<br />to see you in <span class="cap">H</span>ong <span class="cap">K</span>ong, posthaste!'
           fnKeyInput()
-          delay = 10
-          goto = 2410
+          state.delay = 10
+          state.goto = 2410
           break
         }
       case 2410:
         if (fR(9) == 0) {
-          goto = 'PRICE'
-          delay = 0
+          state.goto = 'PRICE'
+          state.delay = 0
           break
         }
       case 'R-PRICE':
-        if (CA > 25000 && fR(20) == 0) {
-          goto = 'ROBBED'
-          delay = 0
+        if (state.CA > 25000 && fR(20) == 0) {
+          state.goto = 'ROBBED'
+          state.delay = 0
           break
         }
       case 'R-ROBBED':
       case 'PORT2': {
-        if (LO == 1 && CA + BA >= 1e6) {
-          mesid = 0
-          allow = [1, 'PORT3', 'B', 'S', 'V', 'T', 'R', 'Q']
-        } else if (LO == 1) {
-          mesid = 1
-          allow = [1, 'PORT3', 'B', 'S', 'V', 'T', 'Q']
+        if (state.LO == 1 && state.CA + state.BA >= 1e6) {
+          state.mesid = 0
+          state.allow = [1, 'PORT3', 'B', 'S', 'V', 'T', 'R', 'Q']
+        } else if (state.LO == 1) {
+          state.mesid = 1
+          state.allow = [1, 'PORT3', 'B', 'S', 'V', 'T', 'Q']
         } else {
-          mesid = 2
-          allow = [1, 'PORT3', 'B', 'S', 'Q']
+          state.mesid = 2
+          state.allow = [1, 'PORT3', 'B', 'S', 'Q']
         }
-        prices =
+        state.prices =
           comp$ +
           t$ +
           ', present prices per unit here are:<br/>' +
           '<table><tr><td class="c10">&nbsp;</td><td class="c40">' +
-          BP[0][0] +
+          state.BP[0][0] +
           ': ' +
-          CP[0] +
+          state.CP[0] +
           '</td><td class="c40">' +
-          BP[1][0] +
+          state.BP[1][0] +
           ': ' +
-          CP[1] +
+          state.CP[1] +
           '</td><td class="c10">&nbsp;</td></tr>' +
           '<tr><td class="c10">&nbsp;</td><td class="c40">' +
-          BP[2][0] +
+          state.BP[2][0] +
           ': ' +
-          CP[2] +
+          state.CP[2] +
           '</td><td class="c40"><span class="cap">G</span>eneral: ' +
-          CP[3] +
+          state.CP[3] +
           '</td><td class="c10">&nbsp;</td></tr></table><br/>'
         elements['message'].innerHTML =
-          prices + shallI[mesid] + ' <span id="input"></span><span id="cursor">_</span>'
+          state.prices + shallI[state.mesid] + ' <span id="input"></span><span id="cursor">_</span>'
         fnKeyInput()
         break
       }
       case 'PORT3':
-        if (input[2] == 'B') goto = 'B1'
-        else if (input[2] == 'S') goto = 'S1'
-        else if (input[2] == 'V') goto = 'V1'
-        else if (input[2] == 'T') goto = 2620
-        else if (input[2] == 'Q' && MW < 0) goto = 'OVERLOAD'
-        else if (input[2] == 'Q') goto = 'Q1'
-        else if (input[2] == 'R') goto = 2695
-        else goto = 'NOTYET'
-        delay = 0
+        if (input[2] == 'B') state.goto = 'B1'
+        else if (input[2] == 'S') state.goto = 'S1'
+        else if (input[2] == 'V') state.goto = 'V1'
+        else if (input[2] == 'T') state.goto = 2620
+        else if (input[2] == 'Q' && state.MW < 0) state.goto = 'OVERLOAD'
+        else if (input[2] == 'Q') state.goto = 'Q1'
+        else if (input[2] == 'R') state.goto = 2695
+        else state.goto = 'NOTYET'
+        state.delay = 0
         break
       case 'NEWSHIP1':
-        allow = [1, 'NEWSHIP2', 'Y', 'N']
+        state.allow = [1, 'NEWSHIP2', 'Y', 'N']
         elements['message'].innerHTML =
           comp$ +
           '<span class="cap">D</span>o you wish to trade in your ' +
-          (DM > 0 ? '<span class="inverse">damaged</span>' : 'fine') +
+          (state.DM > 0 ? '<span class="inverse">damaged</span>' : 'fine') +
           '<br/>ship for one with 50 more capacity by<br/>paying an additional ' +
-          fnFC(SP) +
+          fnFC(state.SP) +
           ', ' +
           t$ +
           '? <span id="input"></span><span id="cursor">_</span>'
@@ -705,315 +702,328 @@ export function startGame(root: HTMLElement): () => void {
         break
       case 'NEWSHIP2':
         if (input[2] == 'Y') {
-          CA -= SP
-          MW += 50
-          SC += 50
-          DM = 0
+          state.CA -= state.SP
+          state.MW += 50
+          state.SC += 50
+          state.DM = 0
           fRP()
         }
-        goto = 'R-NEWSHIP'
-        delay = 2
+        state.goto = 'R-NEWSHIP'
+        state.delay = 2
         break
       case 'NEWGUN1':
-        allow = [1, 'NEWGUN2', 'Y', 'N']
+        state.allow = [1, 'NEWGUN2', 'Y', 'N']
         elements['message'].innerHTML =
           comp$ +
           '<span class="cap">D</span>o you wish to buy a ship\'s gun<br/>for ' +
-          fnFC(SP) +
+          fnFC(state.SP) +
           ', ' +
           t$ +
           '? <span id="input"></span><span id="cursor">_</span>'
         fnKeyInput()
         break
       case 'NEWGUN2':
-        if (input[2] == 'Y' && MW >= 10) {
-          CA -= SP
-          GN += 1
-          MW -= 10
+        if (input[2] == 'Y' && state.MW >= 10) {
+          state.CA -= state.SP
+          state.GN += 1
+          state.MW -= 10
           fRP()
-          delay = 2
-          goto = 'R-NEWGUN'
+          state.delay = 2
+          state.goto = 'R-NEWGUN'
         } else if (input[2] == 'Y') {
           elements['message'].innerHTML +=
             '<br/><br/><span class="cap">Y</span>our ship would be overburdened, ' + t$ + '!'
           fnKeyInput()
           cursor[0] = null
-          delay = 10
-          goto = 'R-NEWGUN'
+          state.delay = 10
+          state.goto = 'R-NEWGUN'
         } else {
-          delay = 2
-          goto = 'R-NEWGUN'
+          state.delay = 2
+          state.goto = 'R-NEWGUN'
         }
         break
       case 'PRICE':
         i = fR(4)
         if (fR(2) == 0) {
-          CP[i] = Mf(CP[i] / 5)
+          state.CP[i] = Mf(state.CP[i] / 5)
           elements['message'].innerHTML =
-            comp$ + t$ + '!!&nbsp; The price of ' + BP[i][0] + ' has dropped to ' + CP[i] + '!!'
+            comp$ +
+            t$ +
+            '!!&nbsp; The price of ' +
+            state.BP[i][0] +
+            ' has dropped to ' +
+            state.CP[i] +
+            '!!'
         } else {
-          CP[i] *= fR(5) + 5
+          state.CP[i] *= fR(5) + 5
           elements['message'].innerHTML =
-            comp$ + t$ + '!!&nbsp; The price of ' + BP[i][0] + ' has risen to ' + CP[i] + '!!'
+            comp$ +
+            t$ +
+            '!!&nbsp; The price of ' +
+            state.BP[i][0] +
+            ' has risen to ' +
+            state.CP[i] +
+            '!!'
         }
         fnKeyInput()
-        delay = 10
-        goto = 'R-PRICE'
+        state.delay = 10
+        state.goto = 'R-PRICE'
         break
       case 'ROBBED':
-        i = Mf(CA / 1.4)
+        i = Mf(state.CA / 1.4)
         elements['message'].innerHTML =
           comp$ + "You've been beaten up and robbed of " + fnFC(i) + ' in cash, ' + t$ + '!!'
-        CA -= i
-        elements['CA'].innerHTML = fnFC(CA)
+        state.CA -= i
+        elements['CA'].innerHTML = fnFC(state.CA)
         fnKeyInput()
-        delay = 18
-        goto = 'R-ROBBED'
+        state.delay = 18
+        state.goto = 'R-ROBBED'
         break
       case 'B1':
-        allow = [1, 'B2', 'O', 'S', 'A', 'G']
+        state.allow = [1, 'B2', 'O', 'S', 'A', 'G']
         elements['message'].innerHTML =
-          prices +
+          state.prices +
           '<span class="cap">W</span>hat do you wish me to buy, ' +
           t$ +
           '? <span id="input"></span><span id="cursor">_</span>'
         fnKeyInput()
         break
       case 'B2':
-        allow = [6, 'B3', 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-        if (input[2] == 'O') item = 0
-        else if (input[2] == 'S') item = 1
-        else if (input[2] == 'A') item = 2
-        else item = 3
-        afford = Mf(CA / CP[item])
+        state.allow = [6, 'B3', 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        if (input[2] == 'O') state.item = 0
+        else if (input[2] == 'S') state.item = 1
+        else if (input[2] == 'A') state.item = 2
+        else state.item = 3
+        state.afford = Mf(state.CA / state.CP[state.item])
       case 'B2a':
         elements['message'].innerHTML =
-          prices +
+          state.prices +
           '<span class="cap">H</span>ow much ' +
-          BP[item][0] +
+          state.BP[state.item][0] +
           ' shall<br/><span class="cap">I</span> buy, ' +
           t$ +
           '? <span id="input"></span><span id="cursor">_</span>' +
           '<span class="afford">You can<br/>afford<br/>' +
-          afford +
+          state.afford +
           '</span>'
         fnKeyInput()
         break
       case 'B3':
-        amount = input[2] == 'A' ? afford : +input[2]
-        if (amount <= afford) {
-          MW -= amount
-          elements['MW'].innerHTML = MW >= 0 ? String(MW) : overload$
-          CA -= CP[item] * amount
-          elements['CA'].innerHTML = fnFC(CA)
-          ST[1][item] += amount
-          elements['h' + item].innerHTML = String(ST[1][item])
-          goto = 'PORT2'
-        } else goto = 'B2a'
-        delay = 0
+        amount = input[2] == 'A' ? state.afford : +input[2]
+        if (amount <= state.afford) {
+          state.MW -= amount
+          elements['MW'].innerHTML = state.MW >= 0 ? String(state.MW) : overload$
+          state.CA -= state.CP[state.item] * amount
+          elements['CA'].innerHTML = fnFC(state.CA)
+          state.ST[1][state.item] += amount
+          elements['h' + state.item].innerHTML = String(state.ST[1][state.item])
+          state.goto = 'PORT2'
+        } else state.goto = 'B2a'
+        state.delay = 0
         break
       case 'S1':
-        allow = [1, 'S2', 'O', 'S', 'A', 'G']
+        state.allow = [1, 'S2', 'O', 'S', 'A', 'G']
         elements['message'].innerHTML =
-          prices +
+          state.prices +
           '<span class="cap">W</span>hat do you wish me to sell, ' +
           t$ +
           '? <span id="input"></span><span id="cursor">_</span>'
         fnKeyInput()
         break
       case 'S2':
-        allow = [6, 'S3', 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-        if (input[2] == 'O') item = 0
-        else if (input[2] == 'S') item = 1
-        else if (input[2] == 'A') item = 2
-        else item = 3
+        state.allow = [6, 'S3', 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        if (input[2] == 'O') state.item = 0
+        else if (input[2] == 'S') state.item = 1
+        else if (input[2] == 'A') state.item = 2
+        else state.item = 3
       case 'S2a':
         elements['message'].innerHTML =
-          prices +
+          state.prices +
           '<span class="cap">H</span>ow much ' +
-          BP[item][0] +
+          state.BP[state.item][0] +
           ' shall<br/><span class="cap">I</span> sell, ' +
           t$ +
           '? <span id="input"></span><span id="cursor">_</span>'
         fnKeyInput()
         break
       case 'S3':
-        amount = input[2] == 'A' ? ST[1][item] : +input[2]
-        if (amount <= ST[1][item]) {
-          MW += amount
-          elements['MW'].innerHTML = MW >= 0 ? String(MW) : overload$
-          CA += CP[item] * amount
-          elements['CA'].innerHTML = fnFC(CA)
-          ST[1][item] -= amount
-          elements['h' + item].innerHTML = String(ST[1][item])
-          goto = 'PORT2'
-        } else goto = 'S2a'
-        delay = 0
+        amount = input[2] == 'A' ? state.ST[1][state.item] : +input[2]
+        if (amount <= state.ST[1][state.item]) {
+          state.MW += amount
+          elements['MW'].innerHTML = state.MW >= 0 ? String(state.MW) : overload$
+          state.CA += state.CP[state.item] * amount
+          elements['CA'].innerHTML = fnFC(state.CA)
+          state.ST[1][state.item] -= amount
+          elements['h' + state.item].innerHTML = String(state.ST[1][state.item])
+          state.goto = 'PORT2'
+        } else state.goto = 'S2a'
+        state.delay = 0
         break
       case 'OVERLOAD':
         elements['message'].innerHTML =
           comp$ + '<span class="cap">Y</span>our ship is overloaded, ' + t$ + '!!'
-        delay = 16
-        goto = 'PORT2'
+        state.delay = 16
+        state.goto = 'PORT2'
         fnKeyInput()
         break
       case 'V1':
-        allow = [9, 'V2', 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        state.allow = [9, 'V2', 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
         elements['message'].innerHTML =
           comp$ +
           '<span class="cap">H</span>ow much will you deposit? <span id="input"></span><span id="cursor">_</span>'
         fnKeyInput()
         break
       case 'V2':
-        amount = input[2] == 'A' ? CA : +input[2]
-        if (amount > CA) {
+        amount = input[2] == 'A' ? state.CA : +input[2]
+        if (amount > state.CA) {
           elements['message'].innerHTML +=
-            '<br/><br/>' + t$ + ', you have only ' + fnFC(CA) + '<br/>in cash.'
-          delay = 24
-          goto = 'V1'
+            '<br/><br/>' + t$ + ', you have only ' + fnFC(state.CA) + '<br/>in cash.'
+          state.delay = 24
+          state.goto = 'V1'
           fnKeyInput()
           cursor[0] = null
           break
         } else {
-          CA -= amount
-          BA += amount
+          state.CA -= amount
+          state.BA += amount
           fRP()
         }
       case 'V3':
-        allow = [9, 'V4', 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        state.allow = [9, 'V4', 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
         elements['message'].innerHTML =
           comp$ +
           '<span class="cap">H</span>ow much will you withdraw? <span id="input"></span><span id="cursor">_</span>'
         fnKeyInput()
         break
       case 'V4':
-        amount = input[2] == 'A' ? BA : +input[2]
-        if (amount > BA) {
+        amount = input[2] == 'A' ? state.BA : +input[2]
+        if (amount > state.BA) {
           elements['message'].innerHTML +=
-            '<br/><br/>' + t$ + ', you have only ' + fnFC(BA) + '<br/>in the bank.'
-          delay = 24
-          goto = 'V3'
+            '<br/><br/>' + t$ + ', you have only ' + fnFC(state.BA) + '<br/>in the bank.'
+          state.delay = 24
+          state.goto = 'V3'
           fnKeyInput()
           cursor[0] = null
           break
         } else {
-          BA -= amount
-          CA += amount
+          state.BA -= amount
+          state.CA += amount
           fRP()
         }
-        goto = 'PORT2'
-        delay = 0
+        state.goto = 'PORT2'
+        state.delay = 0
         break
       case 2620:
       case 2622:
         W = 0
-        for (wh1 = 0; wh1 < 2; wh1++) {
-          for (wh2 = 0; wh2 < 4; wh2++) W += ST[wh1][wh2]
+        for (state.wh1 = 0; state.wh1 < 2; state.wh1++) {
+          for (state.wh2 = 0; state.wh2 < 4; state.wh2++) W += state.ST[state.wh1][state.wh2]
         }
         if (W == 0) {
           elements['message'].innerHTML =
-            prices + '<span class="cap">Y</span>ou have no cargo, ' + t$ + '.'
-          delay = 12
-          goto = 'PORT2'
+            state.prices + '<span class="cap">Y</span>ou have no cargo, ' + t$ + '.'
+          state.delay = 12
+          state.goto = 'PORT2'
           fnKeyInput()
           break
         }
-        wh1 = 2
-        wh2 = 0
+        state.wh1 = 2
+        state.wh2 = 0
       case 2624:
         do {
-          wh1--
-          if (wh1 < 0) {
-            if (wh2 < 3) {
-              wh1 = 1
-              wh2++
+          state.wh1--
+          if (state.wh1 < 0) {
+            if (state.wh2 < 3) {
+              state.wh1 = 1
+              state.wh2++
             } else {
-              goto = 'PORT2'
-              delay = 0
+              state.goto = 'PORT2'
+              state.delay = 0
+              touch()
               return
             }
           }
-        } while (ST[wh1][wh2] == 0)
+        } while (state.ST[state.wh1][state.wh2] == 0)
       case 2626:
         elements['message'].innerHTML =
           comp$ +
           '<span class="cap">H</span>ow much ' +
-          BP[wh2][0] +
+          state.BP[state.wh2][0] +
           ' shall <span class="cap">I</span> move<br />' +
-          (wh1 == 0 ? 'aboard ship' : 'to the warehouse') +
+          (state.wh1 == 0 ? 'aboard ship' : 'to the warehouse') +
           ', ' +
           t$ +
           '? <span id="input"></span><span id="cursor">_</span>'
-        allow = [5, 2628, 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        state.allow = [5, 2628, 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
         fnKeyInput()
         break
       case 2628:
-        amount = input[2] == 'A' ? ST[wh1][wh2] : +input[2]
-        if (wh1 == 1 && amount > 0 && WC == 0) {
+        amount = input[2] == 'A' ? state.ST[state.wh1][state.wh2] : +input[2]
+        if (state.wh1 == 1 && amount > 0 && state.WC == 0) {
           elements['message'].innerHTML += '<br/><br/>Your warehouse is full, ' + t$ + '!'
-          delay = 10
-          goto = 2626
+          state.delay = 10
+          state.goto = 2626
           fnKeyInput()
           cursor[0] = null
           break
         }
-        if (wh1 == 1 && amount > WC) {
+        if (state.wh1 == 1 && amount > state.WC) {
           elements['message'].innerHTML +=
             '<br/><br/>Your warehouse will only hold an<br />additional ' +
-            fnFC(WC) +
+            fnFC(state.WC) +
             ', ' +
             t$ +
             '!'
-          delay = 10
-          goto = 2626
+          state.delay = 10
+          state.goto = 2626
           fnKeyInput()
           cursor[0] = null
           break
         }
-        if (amount > ST[wh1][wh2]) {
+        if (amount > state.ST[state.wh1][state.wh2]) {
           elements['message'].innerHTML +=
-            '<br/><br/>You have only ' + fnFC(ST[wh1][wh2]) + ', ' + t$ + '.'
-          delay = 10
-          goto = 2626
+            '<br/><br/>You have only ' + fnFC(state.ST[state.wh1][state.wh2]) + ', ' + t$ + '.'
+          state.delay = 10
+          state.goto = 2626
           fnKeyInput()
           cursor[0] = null
           break
         }
-        ST[wh1][wh2] -= amount
-        if (wh1 == 0) {
-          ST[1][wh2] += amount
-          WS -= amount
-          WC += amount
-          MW -= amount
+        state.ST[state.wh1][state.wh2] -= amount
+        if (state.wh1 == 0) {
+          state.ST[1][state.wh2] += amount
+          state.WS -= amount
+          state.WC += amount
+          state.MW -= amount
         } else {
-          ST[0][wh2] += amount
-          WS += amount
-          WC -= amount
-          MW += amount
+          state.ST[0][state.wh2] += amount
+          state.WS += amount
+          state.WC -= amount
+          state.MW += amount
         }
-        elements['w' + wh2].innerHTML = fnFC(ST[0][wh2])
-        elements['h' + wh2].innerHTML = fnFC(ST[1][wh2])
-        elements['WS'].innerHTML = fnFC(WS)
-        elements['WC'].innerHTML = fnFC(WC)
-        elements['MW'].innerHTML = MW >= 0 ? String(MW) : overload$
-        goto = 2624
-        delay = 0
+        elements['w' + state.wh2].innerHTML = fnFC(state.ST[0][state.wh2])
+        elements['h' + state.wh2].innerHTML = fnFC(state.ST[1][state.wh2])
+        elements['WS'].innerHTML = fnFC(state.WS)
+        elements['WC'].innerHTML = fnFC(state.WC)
+        elements['MW'].innerHTML = state.MW >= 0 ? String(state.MW) : overload$
+        state.goto = 2624
+        state.delay = 0
         break
       case 2695:
         elements['message'].innerHTML =
           '<br /><div class="millionaire"><span class="cap">Y</span> o&nbsp;u &nbsp;\' &nbsp;r &nbsp;e &nbsp; &nbsp;a<br /><br /><span class="cap">M &nbsp; I &nbsp; L &nbsp; L &nbsp; I &nbsp; O &nbsp; N &nbsp; A &nbsp; I &nbsp; R &nbsp; E &nbsp; !</span></div>'
         fnKeyInput()
-        delay = 18
-        goto = 20000
+        state.delay = 18
+        state.goto = 20000
         break
       case 'NOTYET':
         elements['message'].innerHTML = comp$ + t$ + ", that command hasn't yet been implemented!"
-        delay = 6
-        goto = 'PORT2'
+        state.delay = 6
+        state.goto = 'PORT2'
         fnKeyInput()
         break
       case 'Q1':
-        allow = [1, 'Q2', '1', '2', '3', '4', '5', '6', '7']
+        state.allow = [1, 'Q2', '1', '2', '3', '4', '5', '6', '7']
         elements['message'].innerHTML =
           comp$ +
           t$ +
@@ -1038,70 +1048,76 @@ export function startGame(root: HTMLElement): () => void {
         fnKeyInput()
         break
       case 'Q2':
-        if (input[2] == LO) {
+        if (input[2] == state.LO) {
           elements['message'].innerHTML +=
             '<br/><span class="cap">Y</span>ou\'re already here, ' + t$ + '.'
           fnKeyInput()
           cursor[0] = null
-          delay = 16
-          goto = 'Q1'
+          state.delay = 16
+          state.goto = 'Q1'
           break
         }
       case 3030:
         elements['location'].innerHTML = cities[0]
-        LO = input[2]
+        state.LO = input[2]
         elements['message'].innerHTML = capt$
         fnKeyInput()
-        delay = 2
-        goto = 3100
+        state.delay = 2
+        state.goto = 3100
         break
       case 3100:
-        if (fR(FQ) == 0) {
-          SN = fR(SC / 10 + GN) + 1
-          F1 = 1
+        if (fR(state.FQ) == 0) {
+          state.SN = fR(state.SC / 10 + state.GN) + 1
+          state.F1 = 1
           elements['message'].innerHTML =
-            capt$ + SN + ' hostile ship' + (SN > 1 ? 's' : '') + ' approaching, ' + t$ + '!!'
+            capt$ +
+            state.SN +
+            ' hostile ship' +
+            (state.SN > 1 ? 's' : '') +
+            ' approaching, ' +
+            t$ +
+            '!!'
           fnKeyInput()
-          delay = 10
-          goto = 5000
+          state.delay = 10
+          state.goto = 5000
           break
         }
-        if (fR(4 + 8 * LI) == 0) {
+        if (fR(4 + 8 * state.LI) == 0) {
           elements['message'].innerHTML =
             capt$ +
             '<span class="cap">L</span>i <span class="cap">Y</span>uen\'s pirates, ' +
             t$ +
             '!!'
           fnKeyInput()
-          delay = 4
-          goto = 3230
+          state.delay = 4
+          state.goto = 3230
           break
         }
-        goto = 3300
-        delay = 0
+        state.goto = 3300
+        state.delay = 0
         break
       case 3230:
-        if (LI > 0) {
+        if (state.LI > 0) {
           elements['message'].innerHTML +=
             '<br /><br /><span class="cap">G</span>ood joss!! <span class="cap">T</span>hey let us be!!'
           fnKeyInput()
-          delay = 6
-          goto = 3300
+          state.delay = 6
+          state.goto = 3300
           break
         } else {
-          SN = fR(SC / 5 + GN) + 5
-          F1 = 2
+          state.SN = fR(state.SC / 5 + state.GN) + 5
+          state.F1 = 2
           elements['message'].innerHTML +=
             '<br /><br />' +
-            SN +
+            state.SN +
             ' ship' +
-            (SN > 1 ? 's' : '') +
+            (state.SN > 1 ? 's' : '') +
             ' of <span class="cap">L</span>i <span class="cap">Y</span>uen\'s pirate<br />fleet, ' +
             t$ +
             '!!'
           fnKeyInput()
-          delay = 6
-          goto = 5000
+          state.delay = 6
+          state.goto = 5000
           break
         }
       case 3300:
@@ -1109,13 +1125,13 @@ export function startGame(root: HTMLElement): () => void {
           elements['message'].innerHTML =
             capt$ + '<span class="cap">S</span>' + 'torm, ' + t$ + '!!'
           fnKeyInput()
-          delay = 4
-          goto = 3320
+          state.delay = 4
+          state.goto = 3320
           break
         } else {
           fnKeyInput()
-          delay = 0
-          goto = 'ARR1'
+          state.delay = 0
+          state.goto = 'ARR1'
           break
         }
       case 3320:
@@ -1123,166 +1139,166 @@ export function startGame(root: HTMLElement): () => void {
           elements['message'].innerHTML +=
             '<br /><br />&nbsp; &nbsp;<span class="cap">I</span> think we\'re going down!!'
           fnKeyInput()
-          delay = 4
-          goto = 'STORM'
+          state.delay = 4
+          state.goto = 'STORM'
           break
         } else {
           fnKeyInput()
-          delay = 0
-          goto = 3330
+          state.delay = 0
+          state.goto = 3330
           break
         }
       case 'STORM':
-        if (fR((DM / SC) * 3) == 0) {
+        if (fR((state.DM / state.SC) * 3) == 0) {
           elements['message'].innerHTML +=
             '<br /><br /><span class="cap">W</span>' + "e're going down, " + t$ + '!!'
           fnKeyInput()
-          delay = 4
-          goto = 20000
+          state.delay = 4
+          state.goto = 20000
           break
         }
       case 3330:
         elements['message'].innerHTML +=
           '<br /><br />&nbsp; &nbsp; <span class="cap">W</span>e made it!!'
         fnKeyInput()
-        delay = 4
-        goto = 3340
+        state.delay = 4
+        state.goto = 3340
         break
       case 3340:
         if (fR(3) == 0) {
-          D = Number(LO)
-          while (Number(LO) == D) LO = fR(7) + 1
+          state.D = Number(state.LO)
+          while (Number(state.LO) == state.D) state.LO = fR(7) + 1
           elements['message'].innerHTML =
-            capt$ + "We've been blown off course<br />to " + cities[LO as number]
+            capt$ + "We've been blown off course<br />to " + cities[state.LO as number]
           fnKeyInput()
-          delay = 4
-          goto = 'ARR1'
+          state.delay = 4
+          state.goto = 'ARR1'
           break
         }
       case 'ARR1':
         elements['message'].innerHTML =
-          capt$ + '<span class="cap">A</span>rriving at ' + cities[LO as number]
+          capt$ + '<span class="cap">A</span>rriving at ' + cities[state.LO as number]
         fnKeyInput()
-        delay = 8
-        goto = 'ARR2'
+        state.delay = 8
+        state.goto = 'ARR2'
         break
       case 'ARR2':
         elements['message'].innerHTML = comp$
-        elements['location'].innerHTML = cities[LO as number]
+        elements['location'].innerHTML = cities[state.LO as number]
         fnKeyInput()
-        delay = 4
-        goto = 1000
+        state.delay = 4
+        state.goto = 1000
         break
       case 5000:
-        LC = 0
-        OK = 3
-        IK = 1
-        S0 = SN
-        BT = fR((TI / 4) * 1000 * Mp(SN, 1.05)) + fR(1000) + 250
-        SS = 0
-        for (i = 0; i < 10; i++) AM[i][0] = 0
-        elements['SN'].innerHTML = String(SN)
-        elements['GNs'].innerHTML = String(GN)
+        state.LC = 0
+        state.OK = 3
+        state.IK = 1
+        state.S0 = state.SN
+        state.BT = fR((state.TI / 4) * 1000 * Mp(state.SN, 1.05)) + fR(1000) + 250
+        state.SS = 0
+        for (i = 0; i < 10; i++) state.AM[i][0] = 0
+        elements['SN'].innerHTML = String(state.SN)
+        elements['GNs'].innerHTML = String(state.GN)
         elements['S4'].style.display = 'none'
         elements['S5'].style.display = 'block'
         elements['f2'].innerHTML =
           '<span class="cap">Y</span>our orders are to: <span id="input"></span><span id="cursor">_</span>'
       case 5060:
-        WW = 100 - Mf((DM / SC) * 100)
+        state.WW = 100 - Mf((state.DM / state.SC) * 100)
         elements['f4'].innerHTML =
           '<span class="cap">C</span>urrent seaworthiness: &nbsp;' +
-          sstatus[Mf(WW / 20)] +
+          sstatus[Mf(state.WW / 20)] +
           ' (' +
-          WW +
+          state.WW +
           '%)'
       case 5100:
         fnAddShips()
-        allow = false
-        get = [1, 5160, 'F', 'R']
-        delay = LC == 0 ? 12 : 4
-        goto = 5190
+        state.allow = false
+        state.get = [1, 5160, 'F', 'R']
+        state.delay = state.LC == 0 ? 12 : 4
+        state.goto = 5190
         fnKeyInput()
         break
       case 5160:
-        LC = input[2]
-        if (LC == 'F') CMD = '<span class="cap">F</span>ight'
-        else if (LC == 'R') CMD = '<span class="cap">R</span>un'
-        else CMD = '<span class="cap">T</span>hrow cargo'
-        elements['f2'].innerHTML = '<span class="cap">Y</span>our orders are to: ' + CMD
+        state.LC = input[2]
+        if (state.LC == 'F') state.CMD = '<span class="cap">F</span>ight'
+        else if (state.LC == 'R') state.CMD = '<span class="cap">R</span>un'
+        else state.CMD = '<span class="cap">T</span>hrow cargo'
+        elements['f2'].innerHTML = '<span class="cap">Y</span>our orders are to: ' + state.CMD
       case 5190:
-        if (LC == 'R') goto = 5200
-        else if (LC == 'F') goto = 5300
-        else if (LC == 'T') goto = 5400
+        if (state.LC == 'R') state.goto = 5200
+        else if (state.LC == 'F') state.goto = 5300
+        else if (state.LC == 'T') state.goto = 5400
         else elements['f4'].innerHTML = t$ + ', what shall we do?? (Fight, Run)'
-        delay = 0
+        state.delay = 0
         break
       case 5200:
-        get = false
+        state.get = false
         elements['f4'].innerHTML = '<span class="cap">A</span>ye, we\'ll run, ' + t$ + '!'
         fnKeyInput()
-        delay = 4
-        goto = 5210
+        state.delay = 4
+        state.goto = 5210
         break
       case 5210:
-        OK += IK++
-        if (fR(OK) > fR(SN)) {
-          OK = 3
+        state.OK += state.IK++
+        if (fR(state.OK) > fR(state.SN)) {
+          state.OK = 3
           elements['f4'].innerHTML = '<span class="cap">W</span>e got away from \'em, ' + t$ + '!!'
           fnKeyInput()
-          delay = 4
-          goto = 5900
+          state.delay = 4
+          state.goto = 5900
           break
         }
       case 5220:
         elements['f4'].innerHTML = '<span class="cap">C</span>an\'t lose \'em!!'
         fnKeyInput()
-        delay = 4
-        goto = 5230
+        state.delay = 4
+        state.goto = 5230
         break
       case 5230:
-        if (SN > 2 && fR(5) == 0) {
-          W = Mf(fR(SN / 2) + 1)
-          SN -= W
-          elements['SN'].innerHTML = String(SN)
-          if (SS > SN) fnRemoveShips()
+        if (state.SN > 2 && fR(5) == 0) {
+          W = Mf(fR(state.SN / 2) + 1)
+          state.SN -= W
+          elements['SN'].innerHTML = String(state.SN)
+          if (state.SS > state.SN) fnRemoveShips()
           elements['f4'].innerHTML =
             '<span class="cap">B</span>ut we escaped from ' + W + " of 'em, " + t$ + '!'
           fnKeyInput()
-          delay = 4
-          goto = 5500
+          state.delay = 4
+          state.goto = 5500
           break
         } else {
-          delay = 0
-          goto = 5500
+          state.delay = 0
+          state.goto = 5500
           break
         }
       case 5300:
-        get = false
-        if (GN == 0) {
+        state.get = false
+        if (state.GN == 0) {
           elements['f4'].innerHTML = '<span class="cap">W</span>e have no guns, ' + t$ + '!!'
           fnKeyInput()
-          delay = 4
-          goto = 5500
+          state.delay = 4
+          state.goto = 5500
           break
         }
-        CG = 0
+        state.CG = 0
         elements['f4'].innerHTML = '<span class="cap">A</span>ye, we\'ll fight \'em, ' + t$ + '!'
         fnKeyInput()
-        delay = 4
-        goto = 5310
+        state.delay = 4
+        state.goto = 5310
         break
       case 5310:
-        SK = 0
+        state.SK = 0
         elements['f4'].innerHTML = '<span class="cap">W</span>e\'re firing on \'em, ' + t$ + '!'
       case 5320:
-        if (SS == 0) fnAddShips()
-        if (SN > 0 && ++CG <= GN) {
+        if (state.SS == 0) fnAddShips()
+        if (state.SN > 0 && ++state.CG <= state.GN) {
           do shot = fR(10)
-          while (AM[shot][0] == 0)
+          while (state.AM[shot][0] == 0)
         } else {
           fnKeyInput()
-          delay = 0
-          goto = 5340
+          state.delay = 0
+          state.goto = 5340
           break
         }
         fnFire(shot, 'visible')
@@ -1298,56 +1314,61 @@ export function startGame(root: HTMLElement): () => void {
           const hull = elements['sf' + shot].childNodes[0] as HTMLElement
           hull.appendChild(img)
         }
-        AM[shot][1] += fR(30) + 10
-        if (AM[shot][1] > AM[shot][0]) {
-          AM[shot][0] = 0
-          AM[shot][1] = 0
-          SN--
-          SS--
-          SK++
+        state.AM[shot][1] += fR(30) + 10
+        if (state.AM[shot][1] > state.AM[shot][0]) {
+          state.AM[shot][0] = 0
+          state.AM[shot][1] = 0
+          state.SN--
+          state.SS--
+          state.SK++
           fnSink(shot, 0, fR(20) == 0 ? 40 : 20)
           break
         }
         fnKeyInput()
-        delay = 2
-        goto = 5320
+        state.delay = 2
+        state.goto = 5320
         break
       case 5340:
-        if (SK)
+        if (state.SK)
           elements['f4'].innerHTML =
-            '<span class="cap">S</span>unk ' + SK + ' of the buggers, ' + t$ + '!'
+            '<span class="cap">S</span>unk ' + state.SK + ' of the buggers, ' + t$ + '!'
         else
           elements['f4'].innerHTML =
             "<span class=\"cap\">H</span>it 'em, but didn't sink 'em, " + t$ + '!'
         fnKeyInput()
-        delay = 4
-        goto = 5360
+        state.delay = 4
+        state.goto = 5360
         break
       case 5360:
-        if (fR(S0) < (SN * 0.6) / F1 || SN == 0 || SN == S0 || SN < 3) {
+        if (
+          fR(state.S0) < (state.SN * 0.6) / state.F1 ||
+          state.SN == 0 ||
+          state.SN == state.S0 ||
+          state.SN < 3
+        ) {
           fnKeyInput()
-          delay = 0
-          goto = 5500
+          state.delay = 0
+          state.goto = 5500
           break
         }
-        W = Mf(fR(SN / 3 / F1) + 1)
-        SN -= W
-        elements['SN'].innerHTML = String(SN)
-        if (SS > SN) fnRemoveShips()
+        W = Mf(fR(state.SN / 3 / state.F1) + 1)
+        state.SN -= W
+        elements['SN'].innerHTML = String(state.SN)
+        if (state.SS > state.SN) fnRemoveShips()
         elements['f4'].innerHTML = W + ' ran away, ' + t$ + '!'
         fnKeyInput()
-        delay = 4
-        goto = 5500
+        state.delay = 4
+        state.goto = 5500
         break
       case 5400:
-        get = false
+        state.get = false
       case 5500:
-        if (SN == 0) {
-          OK = 1
+        if (state.SN == 0) {
+          state.OK = 1
           elements['f4'].innerHTML = '<span class="cap">W</span>e got \'em all, ' + t$ + '!!'
           fnKeyInput()
-          delay = 4
-          goto = 5900
+          state.delay = 4
+          state.goto = 5900
           break
         }
         elements['f4'].innerHTML = '<span class="cap">T</span>hey\'re firing on us, ' + t$ + '!'
@@ -1360,51 +1381,54 @@ export function startGame(root: HTMLElement): () => void {
         later(() => fnEnemyFire('visible'), 450)
         later(() => fnEnemyFire('hidden'), 525)
         fnKeyInput()
-        delay = 4
-        goto = 5510
+        state.delay = 4
+        state.goto = 5510
         break
       case 5510:
         elements['f4'].innerHTML = '<span class="cap">W</span>e\'ve been hit, ' + t$ + '!!'
         fnKeyInput()
-        delay = 4
-        goto = 5540
+        state.delay = 4
+        state.goto = 5540
         break
       case 5540:
-        DQ = SN > 15 ? 15 : SN
-        if (GN > 0 && (fR(100) < (DM / SC) * 100 || (DM / SC) * 100 > 80)) {
-          DQ = 1
-          GN--
-          MW += 10
-          elements['GNs'].innerHTML = String(GN)
+        state.DQ = state.SN > 15 ? 15 : state.SN
+        if (
+          state.GN > 0 &&
+          (fR(100) < (state.DM / state.SC) * 100 || (state.DM / state.SC) * 100 > 80)
+        ) {
+          state.DQ = 1
+          state.GN--
+          state.MW += 10
+          elements['GNs'].innerHTML = String(state.GN)
           elements['f4'].innerHTML = '<span class="cap">T</span>he buggers hit a gun, ' + t$ + '!!'
           fnKeyInput()
-          delay = 4
-          goto = 5550
+          state.delay = 4
+          state.goto = 5550
           break
         }
       case 5550:
-        DM += fR(ED * DQ * F1) + DQ / 2
-        if (DM > SC) {
+        state.DM += fR(state.ED * state.DQ * state.F1) + state.DQ / 2
+        if (state.DM > state.SC) {
           fnKeyInput()
-          delay = 0
-          goto = 20000
+          state.delay = 0
+          state.goto = 20000
           break
         }
         fnKeyInput()
-        delay = 0
-        goto = 5060
+        state.delay = 0
+        state.goto = 5060
         break
       case 5800:
-        elements['SN'].innerHTML = String(SN)
-        delay = 2
-        goto = 5320
+        elements['SN'].innerHTML = String(state.SN)
+        state.delay = 2
+        state.goto = 5320
         break
       case 5900:
-        if (LC == 'F') {
-          CA += BT
+        if (state.LC == 'F') {
+          state.CA += state.BT
           elements['message'].innerHTML =
             '<br /><br /><span class="cap">W</span>e\'ve captured some booty.<br />It\'s worth ' +
-            fnFC(BT) +
+            fnFC(state.BT) +
             '!'
         } else
           elements['message'].innerHTML =
@@ -1412,82 +1436,92 @@ export function startGame(root: HTMLElement): () => void {
         fRP()
         elements['S5'].style.display = 'none'
         elements['S4'].style.display = 'block'
-        get = false
+        state.get = false
         fnKeyInput()
-        delay = 10
-        goto = 3300
+        state.delay = 10
+        state.goto = 3300
         break
       case 10000:
       case 10120:
         elements['S2b'].innerHTML = '<span id="input"></span><span id="cursor">_</span>'
-        fname = 22
+        state.fname = 22
         fnKeyInput()
         break
       case 10130:
         if (input[2] == '') {
-          delay = 0
-          goto = 10120
+          state.delay = 0
+          state.goto = 10120
           break
         }
         elements['H'].innerHTML = input[2]
+        state.firmName = input[2]
         elements['S2'].style.display = 'none'
         elements['S2b'].innerHTML = ''
         elements['S3'].style.display = 'block'
       case 10140:
         elements['S3b'].innerHTML = '<span id="input"></span><span id="cursor">_</span>'
-        allow = [1, 10150, '1', '2']
+        state.allow = [1, 10150, '1', '2']
         fnKeyInput()
         break
       case 10150:
         if (input[2] == '1') {
-          DW = 5000
-          CA = 400
-          MW = 60
-          GN = 0
-          FQ = 10
+          state.DW = 5000
+          state.CA = 400
+          state.MW = 60
+          state.GN = 0
+          state.FQ = 10
         } else {
-          DW = 0
-          CA = 0
-          MW = 10
-          GN = 5
-          FQ = 7
+          state.DW = 0
+          state.CA = 0
+          state.MW = 10
+          state.GN = 5
+          state.FQ = 7
         }
-        goto = 1030
+        state.goto = 1030
         elements['S3'].style.display = 'none'
         elements['S3b'].innerHTML = ''
         elements['S4'].style.display = 'block'
         break
       case 20000:
-        WW = CA + BA - DW
-        elements['CAf'].innerHTML = fnFC(WW)
-        elements['SCf'].innerHTML = String(SC)
-        elements['GNf'].innerHTML = String(GN)
-        YEARSf = Mf(TI / 12)
-        elements['YEARSf'].innerHTML = YEARSf + ' year'
-        if (YEARSf != 1) elements['YEARSf'].innerHTML += 's'
-        MONTHSf = TI - YEARSf * 12
-        elements['MONTHSf'].innerHTML = MONTHSf + ' month'
-        if (MONTHSf != 1) elements['MONTHSf'].innerHTML += 's'
-        WW = Mf((CA + BA - DW) / 100 / Mp(TI, 1.1))
-        elements['SCOREf'].innerHTML = String(WW)
-        if (WW < 500) elements['SCORE1f'].className = 'inverse'
-        else if (WW < 1000) elements['SCORE2f'].className = 'inverse'
-        else if (WW < 8000) elements['SCORE3f'].className = 'inverse'
-        else if (WW < 50000) elements['SCORE4f'].className = 'inverse'
+        state.WW = state.CA + state.BA - state.DW
+        elements['CAf'].innerHTML = fnFC(state.WW)
+        elements['SCf'].innerHTML = String(state.SC)
+        elements['GNf'].innerHTML = String(state.GN)
+        state.YEARSf = Mf(state.TI / 12)
+        elements['YEARSf'].innerHTML = state.YEARSf + ' year'
+        if (state.YEARSf != 1) elements['YEARSf'].innerHTML += 's'
+        state.MONTHSf = state.TI - state.YEARSf * 12
+        elements['MONTHSf'].innerHTML = state.MONTHSf + ' month'
+        if (state.MONTHSf != 1) elements['MONTHSf'].innerHTML += 's'
+        state.WW = Mf((state.CA + state.BA - state.DW) / 100 / Mp(state.TI, 1.1))
+        elements['SCOREf'].innerHTML = String(state.WW)
+        if (state.WW < 500) elements['SCORE1f'].className = 'inverse'
+        else if (state.WW < 1000) elements['SCORE2f'].className = 'inverse'
+        else if (state.WW < 8000) elements['SCORE3f'].className = 'inverse'
+        else if (state.WW < 50000) elements['SCORE4f'].className = 'inverse'
         else elements['SCORE5f'].className = 'inverse'
         elements['S4'].style.display = 'none'
         elements['S5'].style.display = 'none'
         elements['S6'].style.display = 'block'
+        endGame = true
         break
     }
+    touch(endGame)
   }
   /* eslint-enable no-fallthrough */
+
+  input[0] = byId('input')
+  input[1] = state.inputText.length
+  input[2] = state.inputText
+  if (resumed && input[0]) input[0].innerHTML = state.inputText
+  cursor[0] = byId('cursor')
 
   document.addEventListener('keydown', onKeyDown)
   document.addEventListener('keypress', onKeyPress)
   root.addEventListener('click', focusHelper)
+  window.addEventListener('beforeunload', onBeforeUnload)
   const intervalId = window.setInterval(fnTimer, 500)
-  fnMain(10000)
+  if (!resumed) fnMain(10000)
 
   return () => {
     window.clearInterval(intervalId)
@@ -1496,5 +1530,6 @@ export function startGame(root: HTMLElement): () => void {
     document.removeEventListener('keydown', onKeyDown)
     document.removeEventListener('keypress', onKeyPress)
     root.removeEventListener('click', focusHelper)
+    window.removeEventListener('beforeunload', onBeforeUnload)
   }
 }
