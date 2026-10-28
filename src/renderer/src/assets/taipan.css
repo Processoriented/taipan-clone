@@ -1,0 +1,378 @@
+html,
+body,
+#root {
+  background-color: #000;
+  color: #0f0;
+}
+
+body {
+  display: block;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  background-image: none;
+  font-size: 16px;
+  line-height: normal;
+  font-family: Menlo, Monaco, 'Courier New', monospace;
+  user-select: auto;
+}
+
+#root {
+  display: block;
+  margin: 0;
+}
+
+a,
+a:active,
+a:visited {
+  color: #0f0;
+  outline: none;
+}
+
+img {
+  border-style: none;
+}
+
+.content_center,
+.content_center *,
+.content_center *::before,
+.content_center *::after {
+  box-sizing: content-box;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+td {
+  padding: 0;
+  vertical-align: middle;
+}
+
+.content_center {
+  margin: 40px auto;
+  width: 562px;
+  text-align: left;
+  font-family: Menlo, Monaco, 'Courier New', monospace;
+}
+
+.c10 {
+  width: 10%;
+}
+
+.c30 {
+  width: 30%;
+}
+
+.c30r {
+  width: 30%;
+  text-align: right;
+}
+
+.c40 {
+  width: 40%;
+}
+
+.c50 {
+  width: 50%;
+}
+
+.c50r {
+  width: 50%;
+  text-align: right;
+}
+
+.vtop {
+  vertical-align: top;
+}
+
+#S2 {
+  width: 560px;
+  height: 530px;
+  position: relative;
+  border: solid 1px #0f0;
+  color: #0f0;
+}
+
+.S2a {
+  margin: 172px 20px;
+  padding: 20px;
+  position: relative;
+  border: solid 1px #0f0;
+}
+
+#S2b {
+  letter-spacing: 3px;
+}
+
+.S2c {
+  position: relative;
+  top: -8px;
+  font-size: 24px;
+}
+
+#S3 {
+  width: 560px;
+  height: 530px;
+  position: relative;
+  border: solid 1px #0f0;
+  color: #0f0;
+  display: none;
+}
+
+.S3a {
+  padding: 100px 20px;
+}
+
+#S4 {
+  width: 560px;
+  height: 530px;
+  position: relative;
+  border: solid 1px #0f0;
+  color: #0f0;
+  display: none;
+}
+
+#S5 {
+  width: 560px;
+  height: 530px;
+  position: relative;
+  border: solid 1px #0f0;
+  color: #0f0;
+  display: none;
+}
+
+#S6 {
+  width: 520px;
+  padding: 20px;
+  position: relative;
+  border: solid 1px #0f0;
+  color: #0f0;
+  display: none;
+}
+
+.p1 {
+  width: 544px;
+  margin: 4px 8px;
+  text-align: center;
+}
+
+.p2 {
+  width: 380px;
+  border: solid 1px #0f0;
+  margin: 4px 8px;
+  padding: 5px;
+}
+
+.p3 {
+  width: 150px;
+  text-align: center;
+  margin-top: 10px;
+  line-height: 1.4;
+}
+
+.p4 {
+  width: 544px;
+  margin: 4px 8px;
+}
+
+.solidline {
+  width: 100%;
+  height: 1px;
+  line-height: 1px;
+  font-size: 1px;
+  border-bottom: solid 1px #0f0;
+}
+
+.cap {
+  font-family: Taipan, Copperplate, 'Copperplate Gothic Light', Palatino, serif;
+  font-weight: 400;
+  font-size: 20px;
+}
+
+.inverse {
+  background-color: #0f0;
+  color: #000;
+}
+
+.afford {
+  position: absolute;
+  right: 15px;
+  bottom: 2px;
+  padding: 0 15px;
+  text-align: center;
+  line-height: 1.2;
+  background-color: #0f0;
+  color: #000;
+}
+
+.f0 {
+  width: 560px;
+  height: 100px;
+}
+
+.guns {
+  position: absolute;
+  right: 0;
+  top: 0;
+  padding: 2px 6px 4px 15px;
+  text-align: right;
+  line-height: 1.2;
+  border-left: solid 2px #0f0;
+  border-bottom: solid 2px #0f0;
+}
+
+.sf {
+  position: absolute;
+  width: 98px;
+  height: 84px;
+  overflow: hidden;
+}
+
+#sf0 {
+  left: 2px;
+  top: 100px;
+}
+
+#sf1 {
+  left: 114px;
+  top: 100px;
+}
+
+#sf2 {
+  left: 225px;
+  top: 100px;
+}
+
+#sf3 {
+  left: 338px;
+  top: 100px;
+}
+
+#sf4 {
+  left: 450px;
+  top: 100px;
+}
+
+#sf5 {
+  left: 2px;
+  top: 220px;
+}
+
+#sf6 {
+  left: 114px;
+  top: 220px;
+}
+
+#sf7 {
+  left: 225px;
+  top: 220px;
+}
+
+#sf8 {
+  left: 338px;
+  top: 220px;
+}
+
+#sf9 {
+  left: 450px;
+  top: 220px;
+}
+
+.ship {
+  position: absolute;
+  width: 98px;
+  height: 84px;
+  left: 0;
+  top: 0;
+  background-image: url('./ship.gif');
+}
+
+.dmg {
+  position: absolute;
+  width: 98px;
+  height: 84px;
+  left: 0;
+  top: 0;
+  z-index: 0;
+}
+
+#plus {
+  position: absolute;
+  left: 542px;
+  top: 194px;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+#ef {
+  position: absolute;
+  width: 560px;
+  height: 530px;
+  left: 0;
+  top: 0;
+  background-color: #0f0;
+  opacity: 0.8;
+  z-index: 1;
+  visibility: hidden;
+}
+
+.ff {
+  position: absolute;
+  width: 98px;
+  height: 84px;
+  left: 0;
+  top: 0;
+  background-color: #0f0;
+  opacity: 0.9;
+  z-index: 1;
+  visibility: hidden;
+}
+
+#input {
+  font-size: 14pt;
+}
+
+.millionaire {
+  background-color: #0f0;
+  color: #000;
+  width: 280px;
+  padding: 20px;
+}
+
+.scorecard {
+  width: 400px;
+  border: solid 1px #0f0;
+  padding: 5px 10px;
+}
+
+.play-again {
+  font: inherit;
+  color: #0f0;
+  background: transparent;
+  border: 1px solid #0f0;
+  padding: 2px 12px;
+  cursor: pointer;
+}
+
+#mobilehelper,
+#mobilehelper:focus {
+  height: 0;
+  width: 0;
+  border: none;
+  opacity: 0;
+  outline: none;
+  position: relative;
+  top: -100px;
+}
+
+@media all and (max-width: 800px) {
+  .content_center {
+    margin: 0 auto;
+  }
+
+  .p4 {
+    line-height: 1.2;
+  }
+}
