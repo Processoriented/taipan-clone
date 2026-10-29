@@ -10,58 +10,56 @@ export type GameSummary = {
 }
 
 export type GameState = {
-  MO: number
-  YE: number
-  SC: number
-  BA: number
-  LO: number | string
-  TI: number
-  WC: number
-  WS: number
-  EC: number
-  ED: number
-  F1: number
-  DM: number
-  SP: number
-  WW: number
-  D: number
-  DW: number
-  CA: number
-  MW: number
-  GN: number
-  FQ: number
-  ST: number[][]
-  BP: (string | number)[][]
-  LI: number
-  LI$: number
-  SN: number
-  S0: number
-  SS: number
-  SK: number
-  BT: number
-  LC: number | string
-  CMD: string
-  OK: number
-  IK: number
-  AM: number[][]
-  CP: number[]
-  BR: number
-  item: number
-  afford: number
-  wh1: number
-  wh2: number
-  CG: number
-  DQ: number
-  YEARSf: number
-  MONTHSf: number
-  mesid: number
-  prices: string
+  month: number
+  year: number
+  shipCapacity: number
+  bank: number
+  location: number | string
+  monthsElapsed: number
+  warehouseFree: number
+  warehouseUsed: number
+  enemyStrength: number
+  enemyDamage: number
+  attackerKind: number
+  damage: number
+  offerPrice: number
+  debt: number
+  cash: number
+  holdRoom: number
+  guns: number
+  pirateRarity: number
+  cargo: number[][]
+  goods: (string | number)[][]
+  liFavor: number
+  liDonation: number
+  enemyShips: number
+  enemyShipsAtStart: number
+  shipsOnScreen: number
+  shipsSunk: number
+  booty: number
+  battleOrder: number | string
+  battleOrderHtml: string
+  escapeOdds: number
+  escapeStep: number
+  enemySlots: number[][]
+  portPrices: number[]
+  repairCost: number
+  selectedGood: number
+  affordableUnits: number
+  transferFrom: number
+  transferGood: number
+  gunsFired: number
+  incomingFire: number
+  yearsPlayed: number
+  monthsPlayed: number
+  portPrompt: number
+  priceTableHtml: string
   firmName: string
-  goto: Line
-  delay: number
-  allow: Choice | false
-  get: Choice | false
-  fname: number | false
+  nextLine: Line
+  delayTicks: number
+  allowedInput: Choice | false
+  keyChoice: Choice | false
+  firmNameLimit: number | false
   inputText: string
   viewHtml: string
   resumeLine: Line
@@ -79,48 +77,98 @@ export type SaveFile = {
 const SAVE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const NUMBER_KEYS = [
-  'MO',
-  'YE',
-  'SC',
-  'BA',
-  'TI',
-  'WC',
-  'WS',
-  'EC',
-  'ED',
-  'F1',
-  'DM',
-  'SP',
-  'WW',
-  'D',
-  'DW',
-  'CA',
-  'MW',
-  'GN',
-  'FQ',
-  'LI',
-  'LI$',
-  'SN',
-  'S0',
-  'SS',
-  'SK',
-  'BT',
-  'OK',
-  'IK',
-  'BR',
-  'item',
-  'afford',
-  'wh1',
-  'wh2',
-  'CG',
-  'DQ',
-  'YEARSf',
-  'MONTHSf',
-  'mesid',
-  'delay'
+  'month',
+  'year',
+  'shipCapacity',
+  'bank',
+  'monthsElapsed',
+  'warehouseFree',
+  'warehouseUsed',
+  'enemyStrength',
+  'enemyDamage',
+  'attackerKind',
+  'damage',
+  'offerPrice',
+  'debt',
+  'cash',
+  'holdRoom',
+  'guns',
+  'pirateRarity',
+  'liFavor',
+  'liDonation',
+  'enemyShips',
+  'enemyShipsAtStart',
+  'shipsOnScreen',
+  'shipsSunk',
+  'booty',
+  'escapeOdds',
+  'escapeStep',
+  'repairCost',
+  'selectedGood',
+  'affordableUnits',
+  'transferFrom',
+  'transferGood',
+  'gunsFired',
+  'incomingFire',
+  'yearsPlayed',
+  'monthsPlayed',
+  'portPrompt',
+  'delayTicks'
 ] as const
 
-const BASE_BP: (string | number)[][] = [
+const STATE_RENAMES: ReadonlyArray<readonly [string, string]> = [
+  ['LI$', 'liDonation'],
+  ['YEARSf', 'yearsPlayed'],
+  ['MONTHSf', 'monthsPlayed'],
+  ['mesid', 'portPrompt'],
+  ['prices', 'priceTableHtml'],
+  ['afford', 'affordableUnits'],
+  ['item', 'selectedGood'],
+  ['fname', 'firmNameLimit'],
+  ['allow', 'allowedInput'],
+  ['delay', 'delayTicks'],
+  ['goto', 'nextLine'],
+  ['get', 'keyChoice'],
+  ['wh1', 'transferFrom'],
+  ['wh2', 'transferGood'],
+  ['SC', 'shipCapacity'],
+  ['WC', 'warehouseFree'],
+  ['WS', 'warehouseUsed'],
+  ['EC', 'enemyStrength'],
+  ['ED', 'enemyDamage'],
+  ['F1', 'attackerKind'],
+  ['DM', 'damage'],
+  ['SP', 'offerPrice'],
+  ['DW', 'debt'],
+  ['CA', 'cash'],
+  ['MW', 'holdRoom'],
+  ['GN', 'guns'],
+  ['FQ', 'pirateRarity'],
+  ['ST', 'cargo'],
+  ['BP', 'goods'],
+  ['SN', 'enemyShips'],
+  ['S0', 'enemyShipsAtStart'],
+  ['SS', 'shipsOnScreen'],
+  ['SK', 'shipsSunk'],
+  ['BT', 'booty'],
+  ['LC', 'battleOrder'],
+  ['CMD', 'battleOrderHtml'],
+  ['OK', 'escapeOdds'],
+  ['IK', 'escapeStep'],
+  ['AM', 'enemySlots'],
+  ['CP', 'portPrices'],
+  ['BR', 'repairCost'],
+  ['CG', 'gunsFired'],
+  ['DQ', 'incomingFire'],
+  ['MO', 'month'],
+  ['YE', 'year'],
+  ['BA', 'bank'],
+  ['LO', 'location'],
+  ['TI', 'monthsElapsed'],
+  ['LI', 'liFavor']
+]
+
+const BASE_GOODS: (string | number)[][] = [
   ['<span class="cap">O</span>pium', 11, 16, 15, 14, 12, 10, 13],
   ['<span class="cap">S</span>ilk', 11, 14, 15, 16, 10, 13, 12],
   ['<span class="cap">A</span>rms', 12, 16, 10, 11, 13, 14, 15],
@@ -135,24 +183,33 @@ function isLine(value: unknown): value is Line {
   return typeof value === 'number' || typeof value === 'string'
 }
 
+function migrateState(value: Record<string, unknown>): void {
+  for (const [oldKey, newKey] of STATE_RENAMES) {
+    if (oldKey in value && !(newKey in value)) value[newKey] = value[oldKey]
+    if (oldKey in value) delete value[oldKey]
+  }
+  delete value.WW
+  delete value.D
+}
+
 function isGameState(value: unknown): value is GameState {
   if (!isRecord(value)) return false
   for (const key of NUMBER_KEYS) {
     if (typeof value[key] !== 'number' || !Number.isFinite(value[key])) return false
   }
   if (typeof value.firmName !== 'string') return false
-  if (typeof value.prices !== 'string') return false
-  if (typeof value.CMD !== 'string') return false
+  if (typeof value.priceTableHtml !== 'string') return false
+  if (typeof value.battleOrderHtml !== 'string') return false
   if (typeof value.inputText !== 'string') return false
   if (typeof value.viewHtml !== 'string') return false
-  if (!isLine(value.goto) || !isLine(value.resumeLine)) return false
-  if (typeof value.LO !== 'number' && typeof value.LO !== 'string') return false
-  if (typeof value.LC !== 'number' && typeof value.LC !== 'string') return false
-  if (value.allow !== false && !Array.isArray(value.allow)) return false
-  if (value.get !== false && !Array.isArray(value.get)) return false
-  if (value.fname !== false && typeof value.fname !== 'number') return false
-  if (!Array.isArray(value.ST) || !Array.isArray(value.BP)) return false
-  if (!Array.isArray(value.AM) || !Array.isArray(value.CP)) return false
+  if (!isLine(value.nextLine) || !isLine(value.resumeLine)) return false
+  if (typeof value.location !== 'number' && typeof value.location !== 'string') return false
+  if (typeof value.battleOrder !== 'number' && typeof value.battleOrder !== 'string') return false
+  if (value.allowedInput !== false && !Array.isArray(value.allowedInput)) return false
+  if (value.keyChoice !== false && !Array.isArray(value.keyChoice)) return false
+  if (value.firmNameLimit !== false && typeof value.firmNameLimit !== 'number') return false
+  if (!Array.isArray(value.cargo) || !Array.isArray(value.goods)) return false
+  if (!Array.isArray(value.enemySlots) || !Array.isArray(value.portPrices)) return false
   return true
 }
 
@@ -175,6 +232,7 @@ export function isSaveFile(value: unknown): value is SaveFile {
   if (!isSaveId(value.id)) return false
   if (typeof value.updatedAt !== 'string') return false
   if (!isSummary(value.summary)) return false
+  if (isRecord(value.state)) migrateState(value.state)
   if (!isGameState(value.state)) return false
   return true
 }
@@ -182,69 +240,67 @@ export function isSaveFile(value: unknown): value is SaveFile {
 export function summaryOf(state: GameState): GameSummary {
   return {
     firmName: state.firmName,
-    year: state.YE,
-    month: state.MO,
-    location: state.LO
+    year: state.year,
+    month: state.month,
+    location: state.location
   }
 }
 
 export function createInitialState(): GameState {
   return {
-    MO: 0,
-    YE: 1860,
-    SC: 60,
-    BA: 0,
-    LO: 1,
-    TI: 1,
-    WC: 10000,
-    WS: 0,
-    EC: 20,
-    ED: 0.5,
-    F1: 0,
-    DM: 0,
-    SP: 0,
-    WW: 0,
-    D: 0,
-    DW: 0,
-    CA: 0,
-    MW: 0,
-    GN: 0,
-    FQ: 0,
-    ST: [
+    month: 0,
+    year: 1860,
+    shipCapacity: 60,
+    bank: 0,
+    location: 1,
+    monthsElapsed: 1,
+    warehouseFree: 10000,
+    warehouseUsed: 0,
+    enemyStrength: 20,
+    enemyDamage: 0.5,
+    attackerKind: 0,
+    damage: 0,
+    offerPrice: 0,
+    debt: 0,
+    cash: 0,
+    holdRoom: 0,
+    guns: 0,
+    pirateRarity: 0,
+    cargo: [
       [0, 0, 0, 0],
       [0, 0, 0, 0]
     ],
-    BP: BASE_BP.map((row) => row.slice()),
-    LI: 0,
-    LI$: 0,
-    SN: 0,
-    S0: 0,
-    SS: 0,
-    SK: 0,
-    BT: 0,
-    LC: 0,
-    CMD: '',
-    OK: 0,
-    IK: 0,
-    AM: Array.from({ length: 10 }, () => []),
-    CP: [],
-    BR: 0,
-    item: 0,
-    afford: 0,
-    wh1: 0,
-    wh2: 0,
-    CG: 0,
-    DQ: 0,
-    YEARSf: 0,
-    MONTHSf: 0,
-    mesid: 0,
-    prices: '',
+    goods: BASE_GOODS.map((row) => row.slice()),
+    liFavor: 0,
+    liDonation: 0,
+    enemyShips: 0,
+    enemyShipsAtStart: 0,
+    shipsOnScreen: 0,
+    shipsSunk: 0,
+    booty: 0,
+    battleOrder: 0,
+    battleOrderHtml: '',
+    escapeOdds: 0,
+    escapeStep: 0,
+    enemySlots: Array.from({ length: 10 }, () => []),
+    portPrices: [],
+    repairCost: 0,
+    selectedGood: 0,
+    affordableUnits: 0,
+    transferFrom: 0,
+    transferGood: 0,
+    gunsFired: 0,
+    incomingFire: 0,
+    yearsPlayed: 0,
+    monthsPlayed: 0,
+    portPrompt: 0,
+    priceTableHtml: '',
     firmName: '',
-    goto: '',
-    delay: 0,
-    allow: false,
-    get: false,
-    fname: false,
+    nextLine: '',
+    delayTicks: 0,
+    allowedInput: false,
+    keyChoice: false,
+    firmNameLimit: false,
     inputText: '',
     viewHtml: '',
     resumeLine: ''
