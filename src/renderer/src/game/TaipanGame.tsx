@@ -2,9 +2,22 @@ import { useEffect, useRef, useState } from 'react'
 import { startGame } from './engine'
 import { useGame } from './gameContext'
 import { GameScreen } from './screens/GameScreen'
+import { SaveSelectScreen } from './screens/SaveSelectScreen'
 
 function TaipanGame(): React.JSX.Element {
-  const { session, persist, markDone, flush, startNewGame } = useGame()
+  const {
+    session,
+    saves,
+    ready,
+    persist,
+    markDone,
+    flush,
+    startNewGame,
+    resumeGame,
+    exitToMenu,
+    deleteSave,
+    quit
+  } = useGame()
   const [, setFrame] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -18,7 +31,20 @@ function TaipanGame(): React.JSX.Element {
     })
   }, [session, persist, markDone, flush])
 
-  if (!session) return <div className="content_center" />
+  if (!session) {
+    if (!ready) return <div className="content_center" />
+    return (
+      <div className="content_center">
+        <SaveSelectScreen
+          saves={saves}
+          onResume={resumeGame}
+          onNewGame={startNewGame}
+          onDelete={deleteSave}
+          onQuit={quit}
+        />
+      </div>
+    )
+  }
 
   return (
     <div
@@ -30,12 +56,12 @@ function TaipanGame(): React.JSX.Element {
           startNewGame()
           return
         }
-        if (target.closest('.play-again')) return
+        if (target.closest('.play-again') || target.closest('.port-exit')) return
         inputRef.current?.focus()
       }}
     >
       <input ref={inputRef} className="mobile-helper" aria-hidden="true" tabIndex={-1} />
-      <GameScreen state={session.state} onPlayAgain={startNewGame} />
+      <GameScreen state={session.state} onPlayAgain={startNewGame} onExit={exitToMenu} />
     </div>
   )
 }

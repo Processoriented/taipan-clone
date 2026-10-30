@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { listSaves, writeSave } from './saves'
+import { deleteSave, listSaves, writeSave } from './saves'
 
 function savesDir(): string {
   return join(app.getPath('userData'), 'saves')
@@ -62,6 +62,12 @@ app.whenReady().then(() => {
   ipcMain.handle('saves:list', () => listSaves(savesDir()))
   ipcMain.handle('saves:write', (_event, payload: unknown, seq: unknown) => {
     writeSave(savesDir(), payload, seq)
+  })
+  ipcMain.handle('saves:delete', (_event, id: unknown) => {
+    deleteSave(savesDir(), id)
+  })
+  ipcMain.on('app:quit', () => {
+    app.quit()
   })
   ipcMain.on('saves:writeSync', (event, payload: unknown, seq: unknown) => {
     try {

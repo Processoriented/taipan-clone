@@ -3,10 +3,16 @@ import type { GameState, SaveFile } from '../../../shared/save'
 
 export type GameContextValue = {
   session: SaveFile | null
+  saves: SaveFile[]
+  ready: boolean
   persist: (state: GameState) => void
   markDone: (state: GameState) => void
   flush: (state: GameState) => void
   startNewGame: () => void
+  resumeGame: (save: SaveFile) => void
+  exitToMenu: () => void
+  deleteSave: (id: string) => Promise<void>
+  quit: () => void
 }
 
 export const GameContext = createContext<GameContextValue | null>(null)

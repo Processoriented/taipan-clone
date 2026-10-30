@@ -1,3 +1,4 @@
+import type { GameState } from '../../../shared/save'
 import type { RichNode } from '../../../shared/view'
 import { cap, nodes } from './richText'
 
@@ -57,6 +58,10 @@ export function seaworthinessLine(damage: number, capacity: number): RichNode[] 
 
 export function finalScore(netWorth: number, monthsElapsed: number): number {
   return Math.floor(netWorth / 100 / Math.pow(monthsElapsed, 1.1))
+}
+
+export function currentScore(state: GameState): number {
+  return finalScore(state.cash + state.bank - state.debt, state.monthsElapsed)
 }
 
 export function scoreRank(score: number): 1 | 2 | 3 | 4 | 5 {

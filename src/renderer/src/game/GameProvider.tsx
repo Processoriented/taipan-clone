@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  activeSaves,
   createNewSave,
   isSaveFile,
-  selectActiveSave,
   summaryOf,
   type GameState,
   type SaveFile,
@@ -11,7 +11,7 @@ import {
 import { isGameView } from '../../../shared/view'
 import { GameContext } from './gameContext'
 
-let bootToken = 0
+let listToken = 0
 
 function stamp(save: SaveFile, state: GameState, status: SaveStatus): void {
   if (isGameView(state.view)) save.version = 2
@@ -23,9 +23,17 @@ function stamp(save: SaveFile, state: GameState, status: SaveStatus): void {
 
 export function GameProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const [session, setSession] = useState<SaveFile | null>(null)
+  const [saves, setSaves] = useState<SaveFile[]>([])
+  const [ready, setReady] = useState(false)
   const saveRef = useRef<SaveFile | null>(null)
-  const seqRef = useRef(0)
+  const seqById = useRef(new Map<string, number>())
   const queueRef = useRef(Promise.resolve())
+
+  const nextSeq = useCallback((id: string): number => {
+    const next = (seqById.current.get(id) ?? 0) + 1
+    seqById.current.set(id, next)
+    return next
+  }, [])
 
   const enqueue = useCallback((save: SaveFile, seq: number): void => {
     const copy = structuredClone(save)
@@ -41,61 +49,120 @@ export function GameProvider({ children }: { children: React.ReactNode }): React
       const current = saveRef.current
       if (!current || current.status === 'done' || current.state !== state) return
       stamp(current, state, 'active')
-      enqueue(current, ++seqRef.current)
+      enqueue(current, nextSeq(current.id))
     },
-    [enqueue]
+    [enqueue, nextSeq]
   )
 
-  const markDone = useCallback((state: GameState): void => {
-    const current = saveRef.current
-    if (!current || current.state !== state) return
-    stamp(current, state, 'done')
-    window.api.writeSaveSync(structuredClone(current), ++seqRef.current)
-  }, [])
+  const markDone = useCallback(
+    (state: GameState): void => {
+      const current = saveRef.current
+      if (!current || current.state !== state) return
+      stamp(current, state, 'done')
+      window.api.writeSaveSync(structuredClone(current), nextSeq(current.id))
+    },
+    [nextSeq]
+  )
 
-  const flush = useCallback((state: GameState): void => {
-    const current = saveRef.current
-    if (!current || current.status === 'done' || current.state !== state) return
-    stamp(current, state, current.status)
-    window.api.writeSaveSync(structuredClone(current), ++seqRef.current)
+  const flush = useCallback(
+    (state: GameState): void => {
+      const current = saveRef.current
+      if (!current || current.status === 'done' || current.state !== state) return
+      stamp(current, state, current.status)
+      window.api.writeSaveSync(structuredClone(current), nextSeq(current.id))
+    },
+    [nextSeq]
+  )
+
+  const refreshSaves = useCallback(async (): Promise<void> => {
+    const token = ++listToken
+    const listed = await window.api.listSaves()
+    if (token !== listToken) return
+    setSaves(activeSaves(listed.filter(isSaveFile)))
   }, [])
 
   const startNewGame = useCallback((): void => {
     const next = createNewSave()
-    seqRef.current = 0
     saveRef.current = next
-    enqueue(next, ++seqRef.current)
+    enqueue(next, nextSeq(next.id))
     setSession(next)
-  }, [enqueue])
+  }, [enqueue, nextSeq])
+
+  const resumeGame = useCallback((save: SaveFile): void => {
+    saveRef.current = save
+    setSession(save)
+  }, [])
+
+  const exitToMenu = useCallback((): void => {
+    const current = saveRef.current
+    if (current) flush(current.state)
+    saveRef.current = null
+    setSession(null)
+    void refreshSaves().catch((error: unknown) => {
+      console.error(error)
+    })
+  }, [flush, refreshSaves])
+
+  const deleteSave = useCallback(
+    async (id: string): Promise<void> => {
+      await window.api.deleteSave(id)
+      seqById.current.delete(id)
+      try {
+        await refreshSaves()
+      } catch (error) {
+        console.error(error)
+        setSaves((current) => current.filter((save) => save.id !== id))
+      }
+    },
+    [refreshSaves]
+  )
+
+  const quit = useCallback((): void => {
+    window.api.quit()
+  }, [])
 
   useEffect(() => {
-    const token = ++bootToken
+    const token = ++listToken
     void (async (): Promise<void> => {
-      let active: SaveFile | null = null
       try {
         const listed = await window.api.listSaves()
-        active = selectActiveSave(listed.filter(isSaveFile))
+        if (token !== listToken) return
+        setSaves(activeSaves(listed.filter(isSaveFile)))
       } catch (error) {
         console.error(error)
       }
-      if (token !== bootToken) return
-      if (active) {
-        saveRef.current = active
-        setSession(active)
-        return
-      }
-      const next = createNewSave()
-      seqRef.current = 0
-      saveRef.current = next
-      enqueue(next, ++seqRef.current)
-      if (token !== bootToken) return
-      setSession(next)
+      if (token !== listToken) return
+      setReady(true)
     })()
-  }, [enqueue])
+  }, [])
 
   const value = useMemo(
-    () => ({ session, persist, markDone, flush, startNewGame }),
-    [session, persist, markDone, flush, startNewGame]
+    () => ({
+      session,
+      saves,
+      ready,
+      persist,
+      markDone,
+      flush,
+      startNewGame,
+      resumeGame,
+      exitToMenu,
+      deleteSave,
+      quit
+    }),
+    [
+      session,
+      saves,
+      ready,
+      persist,
+      markDone,
+      flush,
+      startNewGame,
+      resumeGame,
+      exitToMenu,
+      deleteSave,
+      quit
+    ]
   )
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>

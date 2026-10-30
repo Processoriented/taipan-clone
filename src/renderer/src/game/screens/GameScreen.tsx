@@ -8,10 +8,12 @@ import { StakeScreen } from './StakeScreen'
 
 export function GameScreen({
   state,
-  onPlayAgain
+  onPlayAgain,
+  onExit
 }: {
   state: GameState
   onPlayAgain: () => void
+  onExit: () => void
 }): React.JSX.Element {
   if (!state.view) {
     if (state.viewHtml) return <LegacyFrame html={state.viewHtml} inputText={state.inputText} />
@@ -27,6 +29,6 @@ export function GameScreen({
     case 'score':
       return <ScoreScreen state={state} onPlayAgain={onPlayAgain} />
     default:
-      return <PortScreen state={state} />
+      return <PortScreen state={state} onExit={onExit} />
   }
 }

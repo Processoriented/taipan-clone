@@ -1,5 +1,5 @@
 import type { GameState } from '../../../../shared/save'
-import { finalScore, formatMoney, scoreRank } from '../format'
+import { currentScore, formatMoney, scoreRank } from '../format'
 import { Cap } from './Cap'
 import { RichTextView } from './RichTextView'
 
@@ -33,7 +33,7 @@ export function ScoreScreen({
   onPlayAgain: () => void
 }): React.JSX.Element {
   const worth = state.cash + state.bank - state.debt
-  const score = finalScore(worth, state.monthsElapsed)
+  const score = currentScore(state)
   const rank = scoreRank(score)
   const years = state.yearsPlayed + ' year' + (state.yearsPlayed === 1 ? '' : 's')
   const months = state.monthsPlayed + ' month' + (state.monthsPlayed === 1 ? '' : 's')

@@ -330,9 +330,12 @@ export function createNewSave(): SaveFile {
   }
 }
 
+export function activeSaves(saves: SaveFile[]): SaveFile[] {
+  return saves
+    .filter((save) => save.status === 'active')
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0))
+}
+
 export function selectActiveSave(saves: SaveFile[]): SaveFile | null {
-  const active = saves.filter((save) => save.status === 'active')
-  if (active.length === 0) return null
-  active.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0))
-  return active[0]
+  return activeSaves(saves)[0] ?? null
 }

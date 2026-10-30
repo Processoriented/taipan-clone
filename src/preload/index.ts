@@ -8,6 +8,10 @@ const api = {
     ipcRenderer.invoke('saves:write', save, seq),
   writeSaveSync: (save: SaveFile, seq: number): void => {
     ipcRenderer.sendSync('saves:writeSync', save, seq)
+  },
+  deleteSave: (id: string): Promise<void> => ipcRenderer.invoke('saves:delete', id),
+  quit: (): void => {
+    ipcRenderer.send('app:quit')
   }
 }
 

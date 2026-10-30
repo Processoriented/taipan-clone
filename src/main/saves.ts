@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
+import { mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { isSaveFile, isSaveId } from '../shared/save'
 
@@ -20,6 +20,30 @@ export function listSaves(dir: string): unknown[] {
     }
   }
   return saves
+}
+
+function missingFile(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'ENOENT'
+  )
+}
+
+function removeFile(path: string): void {
+  try {
+    unlinkSync(path)
+  } catch (error) {
+    if (!missingFile(error)) throw error
+  }
+}
+
+export function deleteSave(dir: string, id: unknown): void {
+  if (!isSaveId(id)) throw new Error('Invalid save id')
+  removeFile(join(dir, `${id}.json`))
+  removeFile(join(dir, `${id}.json.tmp`))
+  lastSeq.delete(id)
 }
 
 export function writeSave(dir: string, payload: unknown, seq: unknown): void {

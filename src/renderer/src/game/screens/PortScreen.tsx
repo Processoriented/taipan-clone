@@ -17,7 +17,13 @@ function HoldRoom({ room }: { room: number }): React.JSX.Element {
   )
 }
 
-export function PortScreen({ state }: { state: GameState }): React.JSX.Element {
+export function PortScreen({
+  state,
+  onExit
+}: {
+  state: GameState
+  onExit: () => void
+}): React.JSX.Element {
   const worth = seaworthiness(state.damage, state.shipCapacity)
   const status = shipStatusLabel(state.damage, state.shipCapacity)
   // Cash goes negative only while a Li Yuen donation is still unresolved. Keep showing the cash on hand.
@@ -26,9 +32,14 @@ export function PortScreen({ state }: { state: GameState }): React.JSX.Element {
   const where = state.view?.atSea ? cityNodes(0) : cityNodes(Number(state.location))
   return (
     <div className="screen-port">
-      <div className="p1">
-        <Cap text="Firm" />: <span className="cap">{state.firmName}</span>, <Cap text="Hong" />{' '}
-        <Cap text="Kong" />
+      <div className="p1 port-heading">
+        <div className="port-firm">
+          <Cap text="Firm" />: <span className="cap">{state.firmName}</span>, <Cap text="Hong" />{' '}
+          <Cap text="Kong" />
+        </div>
+        <button type="button" className="menu-button port-exit" onClick={onExit}>
+          <Cap text="Exit" /> Game
+        </button>
       </div>
       <table>
         <tbody>
