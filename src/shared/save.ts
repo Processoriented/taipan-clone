@@ -1,6 +1,9 @@
+import { createEmptyView, isGameView, type GameView } from './view'
+
 export type Line = number | string
 export type Choice = [number, Line, ...string[]]
 export type SaveStatus = 'active' | 'done'
+export type { GameView }
 
 export type GameSummary = {
   firmName: string
@@ -38,7 +41,6 @@ export type GameState = {
   shipsSunk: number
   booty: number
   battleOrder: number | string
-  battleOrderHtml: string
   escapeOdds: number
   escapeStep: number
   enemySlots: number[][]
@@ -53,7 +55,6 @@ export type GameState = {
   yearsPlayed: number
   monthsPlayed: number
   portPrompt: number
-  priceTableHtml: string
   firmName: string
   nextLine: Line
   delayTicks: number
@@ -61,12 +62,13 @@ export type GameState = {
   keyChoice: Choice | false
   firmNameLimit: number | false
   inputText: string
-  viewHtml: string
+  view?: GameView
+  viewHtml?: string
   resumeLine: Line
 }
 
 export type SaveFile = {
-  version: 1
+  version: 1 | 2
   id: string
   status: SaveStatus
   updatedAt: string
@@ -168,11 +170,13 @@ const STATE_RENAMES: ReadonlyArray<readonly [string, string]> = [
   ['LI', 'liFavor']
 ]
 
+const PLAIN_GOODS = ['Opium', 'Silk', 'Arms', 'General Cargo']
+
 const BASE_GOODS: (string | number)[][] = [
-  ['<span class="cap">O</span>pium', 11, 16, 15, 14, 12, 10, 13],
-  ['<span class="cap">S</span>ilk', 11, 14, 15, 16, 10, 13, 12],
-  ['<span class="cap">A</span>rms', 12, 16, 10, 11, 13, 14, 15],
-  ['<span class="cap">G</span>eneral <span class="cap">C</span>argo', 10, 11, 12, 13, 14, 15, 16]
+  ['Opium', 11, 16, 15, 14, 12, 10, 13],
+  ['Silk', 11, 14, 15, 16, 10, 13, 12],
+  ['Arms', 12, 16, 10, 11, 13, 14, 15],
+  ['General Cargo', 10, 11, 12, 13, 14, 15, 16]
 ]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -190,6 +194,15 @@ function migrateState(value: Record<string, unknown>): void {
   }
   delete value.WW
   delete value.D
+  delete value.priceTableHtml
+  delete value.battleOrderHtml
+  if (Array.isArray(value.goods)) {
+    for (let i = 0; i < PLAIN_GOODS.length; i++) {
+      const row = value.goods[i]
+      if (!Array.isArray(row)) continue
+      if (typeof row[0] !== 'string' || row[0].includes('<')) row[0] = PLAIN_GOODS[i]
+    }
+  }
 }
 
 function isGameState(value: unknown): value is GameState {
@@ -198,10 +211,9 @@ function isGameState(value: unknown): value is GameState {
     if (typeof value[key] !== 'number' || !Number.isFinite(value[key])) return false
   }
   if (typeof value.firmName !== 'string') return false
-  if (typeof value.priceTableHtml !== 'string') return false
-  if (typeof value.battleOrderHtml !== 'string') return false
   if (typeof value.inputText !== 'string') return false
-  if (typeof value.viewHtml !== 'string') return false
+  if (value.view !== undefined && !isGameView(value.view)) return false
+  if (!isGameView(value.view) && typeof value.viewHtml !== 'string') return false
   if (!isLine(value.nextLine) || !isLine(value.resumeLine)) return false
   if (typeof value.location !== 'number' && typeof value.location !== 'string') return false
   if (typeof value.battleOrder !== 'number' && typeof value.battleOrder !== 'string') return false
@@ -227,7 +239,8 @@ export function isSaveId(value: unknown): value is string {
 
 export function isSaveFile(value: unknown): value is SaveFile {
   if (!isRecord(value)) return false
-  if (value.version !== 1) return false
+  if (value.version !== 1 && value.version !== 2) return false
+  if (value.version === 2 && isRecord(value.state) && !isGameView(value.state.view)) return false
   if (value.status !== 'active' && value.status !== 'done') return false
   if (!isSaveId(value.id)) return false
   if (typeof value.updatedAt !== 'string') return false
@@ -279,7 +292,6 @@ export function createInitialState(): GameState {
     shipsSunk: 0,
     booty: 0,
     battleOrder: 0,
-    battleOrderHtml: '',
     escapeOdds: 0,
     escapeStep: 0,
     enemySlots: Array.from({ length: 10 }, () => []),
@@ -294,7 +306,6 @@ export function createInitialState(): GameState {
     yearsPlayed: 0,
     monthsPlayed: 0,
     portPrompt: 0,
-    priceTableHtml: '',
     firmName: '',
     nextLine: '',
     delayTicks: 0,
@@ -302,7 +313,7 @@ export function createInitialState(): GameState {
     keyChoice: false,
     firmNameLimit: false,
     inputText: '',
-    viewHtml: '',
+    view: createEmptyView(),
     resumeLine: ''
   }
 }
@@ -310,7 +321,7 @@ export function createInitialState(): GameState {
 export function createNewSave(): SaveFile {
   const state = createInitialState()
   return {
-    version: 1,
+    version: 2,
     id: crypto.randomUUID(),
     status: 'active',
     updatedAt: new Date().toISOString(),

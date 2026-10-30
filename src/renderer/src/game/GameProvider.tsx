@@ -8,11 +8,13 @@ import {
   type SaveFile,
   type SaveStatus
 } from '../../../shared/save'
+import { isGameView } from '../../../shared/view'
 import { GameContext } from './gameContext'
 
 let bootToken = 0
 
 function stamp(save: SaveFile, state: GameState, status: SaveStatus): void {
+  if (isGameView(state.view)) save.version = 2
   save.status = status
   save.state = state
   save.updatedAt = new Date().toISOString()

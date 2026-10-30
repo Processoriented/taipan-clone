@@ -1,35 +1,43 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { startGame } from './engine'
 import { useGame } from './gameContext'
+import { GameScreen } from './screens/GameScreen'
 
 function TaipanGame(): React.JSX.Element {
-  const rootRef = useRef<HTMLDivElement>(null)
   const { session, persist, markDone, flush, startNewGame } = useGame()
+  const [, setFrame] = useState(0)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    const root = rootRef.current
-    if (!root || !session) return
+    if (!session) return
+    return startGame(session.state, {
+      persist,
+      markDone,
+      flush,
+      onFrame: () => setFrame((frame) => frame + 1)
+    })
+  }, [session, persist, markDone, flush])
 
-    const stop = startGame(root, session.state, { persist, markDone, flush })
+  if (!session) return <div className="content_center" />
 
-    const onClick = (event: MouseEvent): void => {
-      const target = event.target
-      if (target instanceof Element && target.closest('#play-again')) {
-        stop()
-        startNewGame()
-      }
-    }
-
-    root.addEventListener('click', onClick)
-
-    return () => {
-      stop()
-      root.removeEventListener('click', onClick)
-      root.innerHTML = ''
-    }
-  }, [session, persist, markDone, flush, startNewGame])
-
-  return <div ref={rootRef} className="content_center" />
+  return (
+    <div
+      className="content_center"
+      onClick={(event) => {
+        const target = event.target
+        if (!(target instanceof Element)) return
+        if (target.closest('#play-again')) {
+          startNewGame()
+          return
+        }
+        if (target.closest('.play-again')) return
+        inputRef.current?.focus()
+      }}
+    >
+      <input ref={inputRef} className="mobile-helper" aria-hidden="true" tabIndex={-1} />
+      <GameScreen state={session.state} onPlayAgain={startNewGame} />
+    </div>
+  )
 }
 
 export default TaipanGame
