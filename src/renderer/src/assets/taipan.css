@@ -87,7 +87,7 @@ td {
   vertical-align: top;
 }
 
-#S2 {
+.screen-firm {
   width: 560px;
   height: 530px;
   position: relative;
@@ -102,7 +102,7 @@ td {
   border: solid 1px #0f0;
 }
 
-#S2b {
+.firm-input {
   letter-spacing: 3px;
 }
 
@@ -112,44 +112,40 @@ td {
   font-size: 24px;
 }
 
-#S3 {
+.screen-stake {
   width: 560px;
   height: 530px;
   position: relative;
   border: solid 1px #0f0;
   color: #0f0;
-  display: none;
 }
 
 .S3a {
   padding: 100px 20px;
 }
 
-#S4 {
+.screen-port {
   width: 560px;
   height: 530px;
   position: relative;
   border: solid 1px #0f0;
   color: #0f0;
-  display: none;
 }
 
-#S5 {
+.screen-battle {
   width: 560px;
   height: 530px;
   position: relative;
   border: solid 1px #0f0;
   color: #0f0;
-  display: none;
 }
 
-#S6 {
+.screen-score {
   width: 520px;
   padding: 20px;
   position: relative;
   border: solid 1px #0f0;
   color: #0f0;
-  display: none;
 }
 
 .p1 {
@@ -230,52 +226,52 @@ td {
   overflow: hidden;
 }
 
-#sf0 {
+.sf0 {
   left: 2px;
   top: 100px;
 }
 
-#sf1 {
+.sf1 {
   left: 114px;
   top: 100px;
 }
 
-#sf2 {
+.sf2 {
   left: 225px;
   top: 100px;
 }
 
-#sf3 {
+.sf3 {
   left: 338px;
   top: 100px;
 }
 
-#sf4 {
+.sf4 {
   left: 450px;
   top: 100px;
 }
 
-#sf5 {
+.sf5 {
   left: 2px;
   top: 220px;
 }
 
-#sf6 {
+.sf6 {
   left: 114px;
   top: 220px;
 }
 
-#sf7 {
+.sf7 {
   left: 225px;
   top: 220px;
 }
 
-#sf8 {
+.sf8 {
   left: 338px;
   top: 220px;
 }
 
-#sf9 {
+.sf9 {
   left: 450px;
   top: 220px;
 }
@@ -298,7 +294,7 @@ td {
   z-index: 0;
 }
 
-#plus {
+.plus {
   position: absolute;
   left: 542px;
   top: 194px;
@@ -306,7 +302,7 @@ td {
   font-weight: bold;
 }
 
-#ef {
+.ef {
   position: absolute;
   width: 560px;
   height: 530px;
@@ -330,8 +326,24 @@ td {
   visibility: hidden;
 }
 
-#input {
+.prompt-input {
   font-size: 14pt;
+}
+
+.prompt-cursor {
+  animation: prompt-blink 1s step-end infinite;
+}
+
+@keyframes prompt-blink {
+  0%,
+  49% {
+    visibility: visible;
+  }
+
+  50%,
+  100% {
+    visibility: hidden;
+  }
 }
 
 .millionaire {
@@ -347,7 +359,8 @@ td {
   padding: 5px 10px;
 }
 
-.play-again {
+.play-again,
+.menu-button {
   font: inherit;
   color: #0f0;
   background: transparent;
@@ -356,8 +369,176 @@ td {
   cursor: pointer;
 }
 
-#mobilehelper,
-#mobilehelper:focus {
+.menu-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.port-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.port-firm {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.port-exit {
+  flex-shrink: 0;
+  padding: 0 8px;
+}
+
+.screen-saves {
+  width: 560px;
+  height: 530px;
+  position: relative;
+  border: solid 1px #0f0;
+  color: #0f0;
+  display: flex;
+  flex-direction: column;
+}
+
+.saves-title {
+  margin: 16px 16px 8px;
+  text-align: center;
+}
+
+.saves-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-color: #0f0 #000;
+  scrollbar-gutter: stable;
+}
+
+.saves-list::-webkit-scrollbar {
+  -webkit-appearance: none;
+  width: 8px;
+}
+
+.saves-list::-webkit-scrollbar-track {
+  background: #000;
+}
+
+.saves-list::-webkit-scrollbar-thumb {
+  background: #0f0;
+}
+
+.saves-empty {
+  margin: 24px 16px;
+  text-align: center;
+}
+
+.saves-columns {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin-bottom: 4px;
+  background: #000;
+}
+
+.save-row {
+  display: flex;
+  align-items: stretch;
+  margin: 0 8px 4px;
+}
+
+.save-labels,
+.save-resume {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9ch 18ch;
+  column-gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+  padding: 2px 4px;
+}
+
+.save-resume {
+  font: inherit;
+  color: #0f0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.save-resume:hover,
+.save-resume:focus-visible {
+  background: #0f0;
+  color: #000;
+}
+
+.save-firm {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.save-score,
+.save-played {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.save-delete,
+.save-delete-spacer {
+  flex-shrink: 0;
+  width: 2.5em;
+}
+
+.save-delete {
+  font: inherit;
+  color: #0f0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.save-delete:hover,
+.save-delete:focus-visible {
+  background: #0f0;
+  color: #000;
+}
+
+.saves-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: 12px 16px 8px;
+}
+
+.saves-version {
+  margin: 0 16px 12px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.saves-confirm {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.saves-confirm-name {
+  font-size: 20px;
+}
+
+.mobile-helper,
+.mobile-helper:focus {
   height: 0;
   width: 0;
   border: none;

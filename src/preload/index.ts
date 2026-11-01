@@ -1,8 +1,20 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import type { SaveFile } from '../shared/save'
 
-// Custom APIs for renderer
-const api = {}
+const api = {
+  getVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
+  listSaves: (): Promise<unknown[]> => ipcRenderer.invoke('saves:list'),
+  writeSave: (save: SaveFile, seq: number): Promise<void> =>
+    ipcRenderer.invoke('saves:write', save, seq),
+  writeSaveSync: (save: SaveFile, seq: number): void => {
+    ipcRenderer.sendSync('saves:writeSync', save, seq)
+  },
+  deleteSave: (id: string): Promise<void> => ipcRenderer.invoke('saves:delete', id),
+  quit: (): void => {
+    ipcRenderer.send('app:quit')
+  }
+}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
