@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { SaveFile } from '../../../../shared/save'
 import { currentScore } from '../format'
 import { Cap } from './Cap'
@@ -36,6 +36,11 @@ export function SaveSelectScreen({
   const [pending, setPending] = useState<SaveFile | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [version, setVersion] = useState('')
+
+  useEffect(() => {
+    void window.api.getVersion().then(setVersion)
+  }, [])
 
   async function confirmDelete(): Promise<void> {
     if (!pending || deleting) return
@@ -144,6 +149,7 @@ export function SaveSelectScreen({
           </div>
         </>
       )}
+      <div className="saves-version">{version ? `v${version}` : '\u00a0'}</div>
     </div>
   )
 }

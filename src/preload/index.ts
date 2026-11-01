@@ -3,6 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 import type { SaveFile } from '../shared/save'
 
 const api = {
+  getVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
   listSaves: (): Promise<unknown[]> => ipcRenderer.invoke('saves:list'),
   writeSave: (save: SaveFile, seq: number): Promise<void> =>
     ipcRenderer.invoke('saves:write', save, seq),

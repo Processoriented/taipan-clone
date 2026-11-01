@@ -1,10 +1,12 @@
-appId: com.electron.app
-productName: taipan-clone
+appId: com.github.processoriented.taipan
+productName: Taipan
 directories:
   buildResources: build
 files:
   - '!**/.vscode/*'
   - '!src/*'
+  - '!scripts/**'
+  - '!.github/**'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
@@ -12,32 +14,39 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: taipan-clone
+  executableName: Taipan
+  target:
+    - target: nsis
+      arch:
+        - x64
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
-  shortcutName: ${productName}
-  uninstallDisplayName: ${productName}
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  artifactName: Taipan-${version}-win-setup.${ext}
+  shortcutName: Taipan!
+  uninstallDisplayName: Taipan!
   createDesktopShortcut: always
 mac:
+  category: public.app-category.games
   entitlementsInherit: build/entitlements.mac.plist
-  extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
+  target:
+    - target: dmg
+      arch:
+        - universal
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: Taipan-${version}-mac.${ext}
 linux:
   target:
     - AppImage
-    - snap
-    - deb
-  maintainer: electronjs.org
-  category: Utility
+  category: Game
 appImage:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: Taipan-${version}.${ext}
 npmRebuild: false
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: Processoriented
+  repo: taipan-clone
+  releaseType: release
