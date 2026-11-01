@@ -24,8 +24,8 @@ jobs:
             path: dist/*.exe
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -33,8 +33,8 @@ jobs:
         shell: bash
         run: node -e "const version=require('./package.json').version; const tag=process.env.GITHUB_REF_NAME; if (tag!=='v'+version) { console.error('Tag '+tag+' does not match package version '+version); process.exit(1); }"
       - run: npm ci
-      - run: npm run ${{ matrix.script }}
-      - uses: actions/upload-artifact@v4
+      - run: npm run ${{ matrix.script }} -- --publish never
+      - uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.path }}
@@ -44,7 +44,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: dist
           merge-multiple: true
