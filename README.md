@@ -13,7 +13,7 @@ npm run dev
 
 Download a build from the [releases](https://github.com/Processoriented/taipan-clone/releases) page.
 
-- macOS: open the DMG and drag Taipan to Applications. The app is not signed with an Apple Developer ID, so the first launch needs a right-click on the app and then Open. If macOS says the app is damaged, run `xattr -cr /Applications/Taipan.app` and open it again.
+- macOS: open the DMG and drag Taipan to Applications. The download is quarantined, and the app is not signed with an Apple Developer ID, so right-click Open is not enough. In Terminal, run `xattr -cr /Applications/Taipan.app`, then open Taipan. You can instead allow it under System Settings, Privacy & Security, Open Anyway.
 - Windows: run the installer. It installs for the current user and does not ask for an administrator password. SmartScreen will say the publisher is unknown. Choose More info, then Run anyway.
 
 Those prompts come back for each new download. Saves stay in the app data folder, so a newer install keeps them:

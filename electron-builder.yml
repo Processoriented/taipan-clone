@@ -30,6 +30,11 @@ nsis:
   createDesktopShortcut: always
 mac:
   category: public.app-category.games
+  # Ad-hoc signature. A paid Developer ID is still required for notarization.
+  identity: "-"
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   notarize: false
   target:
