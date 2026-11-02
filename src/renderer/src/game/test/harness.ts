@@ -1,4 +1,4 @@
-import { createInitialState, type GameState } from '../../../../shared/save'
+import { createInitialState, type GameState, type Line } from '../../../../shared/save'
 import { startGame, type GameHooks, type GameSession } from '../engine'
 import { seeded } from './rng'
 
@@ -61,6 +61,31 @@ export function startCashGame(
   game.sendKeyDown(13)
   submit(game, '1')
   return { state, game }
+}
+
+export function startGunsGame(
+  seed: number,
+  firmName = 'SMOKE CO'
+): { state: GameState; game: GameSession } {
+  const { state, game } = startHeadless(seed)
+  typeText(game, firmName)
+  game.sendKeyDown(13)
+  submit(game, '2')
+  return { state, game }
+}
+
+/** Jump the engine to a line and flush delay ticks synchronously. */
+export function runLine(game: GameSession, state: GameState, line: Line): void {
+  state.nextLine = line
+  state.delayTicks = 0
+  game.flushDelays()
+}
+
+/** Jump to a line and run a single timer tick (capture intermediate prompts). */
+export function runLineStep(game: GameSession, state: GameState, line: Line): void {
+  state.nextLine = line
+  state.delayTicks = 0
+  game.step()
 }
 
 function isYesNoPrompt(state: GameState): boolean {
