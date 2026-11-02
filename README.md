@@ -18,6 +18,8 @@ npm test
 npm run test:watch
 ```
 
+`classic.smoke.test.ts` covers minimal firm→port→trade→sail→battle paths. `classic.golden.test.ts` is the broader Classic rule lock (Hong Kong arrival order, PRICE / ship / gun / robbery events, Li Yuen, and the undamaged-ship storm sink quirk) and should stay green before Classic vs Modern work (#2). The storm quirk is intentional Classic behavior: with zero damage, `fR(0)` always sinks the ship on the “going down” path.
+
 Pull requests and pushes to `main` run lint, typecheck, and test in GitHub Actions (workflow name **CI**, job **check**). After that workflow has run at least once, the repo owner should enable branch protection on `main` and require the CI check—required status is not enforced by the workflow file alone.
 
 ## Install a shared build

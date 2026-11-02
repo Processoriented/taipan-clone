@@ -38,6 +38,8 @@ export type StartGameOptions = {
 export type GameSession = {
   stop: () => void
   sendKeyDown: (keyCode: number) => void
+  /** Run one timer tick (drain one delay or fire `nextLine`). */
+  step: () => void
   flushDelays: () => void
 }
 
@@ -1629,6 +1631,7 @@ export function startGame(
       }
     },
     sendKeyDown: handleKeyDown,
+    step: fnTimer,
     flushDelays
   }
 }
