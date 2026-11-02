@@ -140,6 +140,9 @@ export function startGame(
   function flushDelays(): void {
     for (let i = 0; i < 10000; i++) {
       if (state.nextLine === '') return
+      // Battle order prompt (case 5100): nextLine 5190 while keyChoice is F/R.
+      // Do not treat a stale keyChoice after the player already picked an order.
+      if (state.keyChoice && state.nextLine === 5190) return
       state.delayTicks = 0
       fnTimer()
     }
