@@ -1,5 +1,5 @@
-export type ScreenId = 'firm' | 'stake' | 'port' | 'battle' | 'score'
-export type InputSlot = 'firm' | 'stake' | 'message' | 'battle' | 'none'
+export type ScreenId = 'firm' | 'mode' | 'stake' | 'port' | 'battle' | 'score'
+export type InputSlot = 'firm' | 'mode' | 'stake' | 'message' | 'battle' | 'none'
 
 export type RichNode =
   | { kind: 'text'; text: string }
@@ -31,8 +31,8 @@ export type GameView = {
   ships: ShipSlotView[]
 }
 
-const SCREENS: readonly ScreenId[] = ['firm', 'stake', 'port', 'battle', 'score']
-const INPUT_SLOTS: readonly InputSlot[] = ['firm', 'stake', 'message', 'battle', 'none']
+const SCREENS: readonly ScreenId[] = ['firm', 'mode', 'stake', 'port', 'battle', 'score']
+const INPUT_SLOTS: readonly InputSlot[] = ['firm', 'mode', 'stake', 'message', 'battle', 'none']
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null

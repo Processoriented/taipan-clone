@@ -1559,6 +1559,13 @@ export function startGame(
           break
         }
         state.firmName = inputValue
+        show('mode').inputSlot = 'mode'
+      case 10135:
+        state.allowedInput = [1, 10136, '1', '2']
+        fnKeyInput()
+        break
+      case 10136:
+        state.gameMode = inputValue == '1' ? 'classic' : 'modern'
         show('stake').inputSlot = 'stake'
       case 10140:
         state.allowedInput = [1, 10150, '1', '2']

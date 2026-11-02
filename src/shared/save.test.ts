@@ -61,6 +61,36 @@ describe('isSaveFile', () => {
     expect((state as { cash?: number }).cash).toBe(1234)
     expect('CA' in state).toBe(false)
   })
+
+  it('migrates missing gameMode to classic', () => {
+    const state = createInitialState() as Record<string, unknown>
+    delete state.gameMode
+    const save: Record<string, unknown> = {
+      version: 2,
+      id: '01234567-89ab-cdef-0123-456789abcdef',
+      status: 'active',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+      summary: summaryOf(createInitialState()),
+      state
+    }
+    expect(isSaveFile(save)).toBe(true)
+    expect(state.gameMode).toBe('classic')
+  })
+
+  it('migrates invalid gameMode values to classic', () => {
+    const state = createInitialState() as Record<string, unknown>
+    state.gameMode = 'retro'
+    const save: Record<string, unknown> = {
+      version: 2,
+      id: '01234567-89ab-cdef-0123-456789abcdef',
+      status: 'active',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+      summary: summaryOf(createInitialState()),
+      state
+    }
+    expect(isSaveFile(save)).toBe(true)
+    expect(state.gameMode).toBe('classic')
+  })
 })
 
 describe('summaryOf', () => {
@@ -82,6 +112,7 @@ describe('summaryOf', () => {
 describe('createInitialState', () => {
   it('starts in 1860 Hong Kong with classic defaults', () => {
     const state = createInitialState()
+    expect(state.gameMode).toBe('classic')
     expect(state.year).toBe(1860)
     expect(state.shipCapacity).toBe(60)
     expect(state.location).toBe(1)
