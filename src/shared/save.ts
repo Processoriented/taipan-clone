@@ -3,6 +3,7 @@ import { createEmptyView, isGameView, type GameView } from './view'
 export type Line = number | string
 export type Choice = [number, Line, ...string[]]
 export type SaveStatus = 'active' | 'done'
+export type GameMode = 'classic' | 'modern'
 export type { GameView }
 
 export type GameSummary = {
@@ -13,6 +14,7 @@ export type GameSummary = {
 }
 
 export type GameState = {
+  gameMode: GameMode
   month: number
   year: number
   shipCapacity: number
@@ -187,6 +189,10 @@ function isLine(value: unknown): value is Line {
   return typeof value === 'number' || typeof value === 'string'
 }
 
+function isGameMode(value: unknown): value is GameMode {
+  return value === 'classic' || value === 'modern'
+}
+
 function migrateState(value: Record<string, unknown>): void {
   for (const [oldKey, newKey] of STATE_RENAMES) {
     if (oldKey in value && !(newKey in value)) value[newKey] = value[oldKey]
@@ -196,6 +202,7 @@ function migrateState(value: Record<string, unknown>): void {
   delete value.D
   delete value.priceTableHtml
   delete value.battleOrderHtml
+  if (!isGameMode(value.gameMode)) value.gameMode = 'classic'
   if (Array.isArray(value.goods)) {
     for (let i = 0; i < PLAIN_GOODS.length; i++) {
       const row = value.goods[i]
@@ -210,6 +217,7 @@ function isGameState(value: unknown): value is GameState {
   for (const key of NUMBER_KEYS) {
     if (typeof value[key] !== 'number' || !Number.isFinite(value[key])) return false
   }
+  if (!isGameMode(value.gameMode)) return false
   if (typeof value.firmName !== 'string') return false
   if (typeof value.inputText !== 'string') return false
   if (value.view !== undefined && !isGameView(value.view)) return false
@@ -261,6 +269,7 @@ export function summaryOf(state: GameState): GameSummary {
 
 export function createInitialState(): GameState {
   return {
+    gameMode: 'classic',
     month: 0,
     year: 1860,
     shipCapacity: 60,

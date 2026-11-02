@@ -52,24 +52,34 @@ export function startHeadless(seed: number): { state: GameState; game: GameSessi
   return { state, game }
 }
 
+export type StartMode = 'classic' | 'modern'
+
+function chooseMode(game: GameSession, mode: StartMode): void {
+  submit(game, mode === 'classic' ? '1' : '2')
+}
+
 export function startCashGame(
   seed: number,
-  firmName = 'SMOKE CO'
+  firmName = 'SMOKE CO',
+  mode: StartMode = 'classic'
 ): { state: GameState; game: GameSession } {
   const { state, game } = startHeadless(seed)
   typeText(game, firmName)
   game.sendKeyDown(13)
+  chooseMode(game, mode)
   submit(game, '1')
   return { state, game }
 }
 
 export function startGunsGame(
   seed: number,
-  firmName = 'SMOKE CO'
+  firmName = 'SMOKE CO',
+  mode: StartMode = 'classic'
 ): { state: GameState; game: GameSession } {
   const { state, game } = startHeadless(seed)
   typeText(game, firmName)
   game.sendKeyDown(13)
+  chooseMode(game, mode)
   submit(game, '2')
   return { state, game }
 }

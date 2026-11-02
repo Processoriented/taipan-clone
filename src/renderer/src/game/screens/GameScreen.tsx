@@ -2,6 +2,7 @@ import type { GameState } from '../../../../shared/save'
 import { BattleScreen } from './BattleScreen'
 import { FirmScreen } from './FirmScreen'
 import { LegacyFrame } from './LegacyFrame'
+import { ModeScreen } from './ModeScreen'
 import { PortScreen } from './PortScreen'
 import { ScoreScreen } from './ScoreScreen'
 import { StakeScreen } from './StakeScreen'
@@ -22,6 +23,8 @@ export function GameScreen({
   switch (state.view.screen) {
     case 'firm':
       return <FirmScreen state={state} />
+    case 'mode':
+      return <ModeScreen state={state} />
     case 'stake':
       return <StakeScreen state={state} />
     case 'battle':
