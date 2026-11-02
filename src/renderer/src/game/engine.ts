@@ -22,7 +22,6 @@ const M = Math
 const Mf = M.floor
 const Mm = M.min
 const Mp = M.pow
-const Mr = M.random
 
 export type GameHooks = {
   persist: (state: GameState) => void
@@ -31,8 +30,25 @@ export type GameHooks = {
   onFrame: () => void
 }
 
-export function startGame(state: GameState, hooks: GameHooks): () => void {
-  const pending = new Set<number>()
+export type StartGameOptions = {
+  random?: () => number
+  headless?: boolean
+}
+
+export type GameSession = {
+  stop: () => void
+  sendKeyDown: (keyCode: number) => void
+  flushDelays: () => void
+}
+
+export function startGame(
+  state: GameState,
+  hooks: GameHooks,
+  options?: StartGameOptions
+): GameSession {
+  const pending = new Set<ReturnType<typeof globalThis.setTimeout>>()
+  const random = options?.random ?? Math.random
+  const headless = options?.headless === true
   let inputValue = state.inputText
   let inputLen = state.inputText.length
 
@@ -109,7 +125,7 @@ export function startGame(state: GameState, hooks: GameHooks): () => void {
   }
 
   function later(fn: () => void, ms: number): void {
-    const id = window.setTimeout(() => {
+    const id = globalThis.setTimeout(() => {
       pending.delete(id)
       fn()
     }, ms)
@@ -121,6 +137,14 @@ export function startGame(state: GameState, hooks: GameHooks): () => void {
     if (state.nextLine != '' && state.delayTicks == 0) fnMain(state.nextLine)
   }
 
+  function flushDelays(): void {
+    for (let i = 0; i < 10000; i++) {
+      if (state.nextLine === '') return
+      state.delayTicks = 0
+      fnTimer()
+    }
+  }
+
   function fnKeyInput(): void {
     inputValue = ''
     inputLen = 0
@@ -129,7 +153,7 @@ export function startGame(state: GameState, hooks: GameHooks): () => void {
   }
 
   function fR(i: number): number {
-    return Mf(Mr() * i)
+    return Mf(random() * i)
   }
 
   function portPrice(good: number): number {
@@ -224,11 +248,10 @@ export function startGame(state: GameState, hooks: GameHooks): () => void {
     if (key == 8) e.preventDefault()
   }
 
-  function onKeyDown(e: KeyboardEvent): void {
+  function handleKeyDown(keyCode: number): void {
     state.delayTicks = 0
-    let key = e.charCode || e.keyCode
+    let key = keyCode
     if (key == 8) {
-      e.preventDefault()
       if (inputLen > 0) {
         inputValue = inputValue.substring(0, inputValue.length - 1)
         inputLen--
@@ -277,6 +300,12 @@ export function startGame(state: GameState, hooks: GameHooks): () => void {
         touch()
       }
     }
+  }
+
+  function onKeyDown(e: KeyboardEvent): void {
+    const key = e.charCode || e.keyCode
+    if (key == 8) e.preventDefault()
+    handleKeyDown(key)
   }
 
   // The cases below fall through on purpose. That is the original line-numbered flow.
@@ -1576,18 +1605,27 @@ export function startGame(state: GameState, hooks: GameHooks): () => void {
     )
   }
 
-  document.addEventListener('keydown', onKeyDown)
-  document.addEventListener('keypress', onKeyPress)
-  window.addEventListener('beforeunload', onBeforeUnload)
-  const intervalId = window.setInterval(fnTimer, 500)
+  let intervalId: ReturnType<typeof globalThis.setInterval> | undefined
+  if (!headless) {
+    document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('keypress', onKeyPress)
+    window.addEventListener('beforeunload', onBeforeUnload)
+    intervalId = globalThis.setInterval(fnTimer, 500)
+  }
   if (isUntouched()) fnMain(10000)
 
-  return () => {
-    window.clearInterval(intervalId)
-    for (const id of pending) window.clearTimeout(id)
-    pending.clear()
-    document.removeEventListener('keydown', onKeyDown)
-    document.removeEventListener('keypress', onKeyPress)
-    window.removeEventListener('beforeunload', onBeforeUnload)
+  return {
+    stop(): void {
+      if (intervalId !== undefined) globalThis.clearInterval(intervalId)
+      for (const id of pending) globalThis.clearTimeout(id)
+      pending.clear()
+      if (!headless) {
+        document.removeEventListener('keydown', onKeyDown)
+        document.removeEventListener('keypress', onKeyPress)
+        window.removeEventListener('beforeunload', onBeforeUnload)
+      }
+    },
+    sendKeyDown: handleKeyDown,
+    flushDelays
   }
 }
