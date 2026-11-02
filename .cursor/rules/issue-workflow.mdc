@@ -36,3 +36,21 @@ When the user says to work on an issue (e.g. "Let's work on issue #n", "work on 
 6. **Update the project board**
    - On [Taipan roadmap](https://github.com/users/Processoriented/projects/2), set the issue Status to **In Progress**.
    - Do not set Done; that follows merge/close.
+
+## After the user reports a PR is approved and merged
+
+When the user says a PR was approved and merged:
+
+1. **Confirm the merge landed on `main`**
+   - `git fetch origin`
+   - Check out `main` and fast-forward to `origin/main`
+   - Verify the merge commit (and closed issue / board Done when applicable)
+   - Only proceed with cleanup after this confirmation succeeds
+
+2. **Delete the merged PR’s head branch locally and on the remote**
+   - Resolve the branch name from the PR (`gh pr view <n> --json headRefName`) or the known `issue/<number>-<slug>` / chore branch
+   - Local: `git branch -d <branch>` (use `-D` only if it was fully merged and `-d` refuses for a false negative)
+   - Remote: `git push origin --delete <branch>`
+   - Skip if the branch is already gone
+
+Do not delete unrelated branches. Do not delete `main`.
