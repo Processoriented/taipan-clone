@@ -453,7 +453,7 @@ td {
 .save-resume {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 9ch 18ch;
+  grid-template-columns: minmax(0, 1fr) 8ch 9ch 18ch;
   column-gap: 6px;
   align-items: baseline;
   min-width: 0;
@@ -481,6 +481,7 @@ td {
   white-space: nowrap;
 }
 
+.save-mode,
 .save-score,
 .save-played {
   min-width: 0;

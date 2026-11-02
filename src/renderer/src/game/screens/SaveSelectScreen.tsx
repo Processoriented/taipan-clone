@@ -8,6 +8,10 @@ function firmLabel(save: SaveFile): string {
   return name === '' ? '\u2014' : name
 }
 
+function modeLabel(save: SaveFile): 'Classic' | 'Modern' {
+  return save.state.gameMode === 'modern' ? 'Modern' : 'Classic'
+}
+
 function formatPlayed(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return iso
@@ -67,7 +71,9 @@ export function SaveSelectScreen({
           <div>
             <Cap text="Are" /> you sure?
           </div>
-          <div className="saves-confirm-name">{firmLabel(pending)}</div>
+          <div className="saves-confirm-name">
+            {firmLabel(pending)} ({modeLabel(pending)})
+          </div>
           {failed ? <div>The save could not be deleted.</div> : null}
           <div className="saves-actions">
             <button
@@ -105,6 +111,9 @@ export function SaveSelectScreen({
                     <span className="save-firm">
                       <Cap text="Firm" />
                     </span>
+                    <span className="save-mode">
+                      <Cap text="Mode" />
+                    </span>
                     <span className="save-score">
                       <Cap text="Score" />
                     </span>
@@ -118,6 +127,9 @@ export function SaveSelectScreen({
                   <div className="save-row" key={save.id}>
                     <button type="button" className="save-resume" onClick={() => onResume(save)}>
                       <span className="save-firm">{firmLabel(save)}</span>
+                      <span className="save-mode">
+                        <Cap text={modeLabel(save)} />
+                      </span>
                       <span className="save-score">
                         {currentScore(save.state).toLocaleString('en-US')}
                       </span>
