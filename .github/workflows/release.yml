@@ -15,11 +15,9 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            script: build:mac
             artifact: mac
             path: dist/*.dmg
           - os: windows-latest
-            script: build:win
             artifact: win
             path: dist/*.exe
     runs-on: ${{ matrix.os }}
@@ -33,7 +31,23 @@ jobs:
         shell: bash
         run: node -e "const version=require('./package.json').version; const tag=process.env.GITHUB_REF_NAME; if (tag!=='v'+version) { console.error('Tag '+tag+' does not match package version '+version); process.exit(1); }"
       - run: npm ci
-      - run: npm run ${{ matrix.script }} -- --publish never
+      - name: Write the Apple notarization key
+        if: runner.os == 'macOS'
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY }}
+        run: printf '%s\n' "$APPLE_API_KEY_CONTENT" > "$RUNNER_TEMP/AuthKey.p8"
+      - name: Build macOS
+        if: runner.os == 'macOS'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ runner.temp }}/AuthKey.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: npm run build:mac -- --publish never
+      - name: Build Windows
+        if: runner.os == 'Windows'
+        run: npm run build:win -- --publish never
       - uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.artifact }}
