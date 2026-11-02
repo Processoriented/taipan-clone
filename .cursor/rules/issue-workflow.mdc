@@ -1,0 +1,38 @@
+---
+description: When asked to work on a GitHub issue, branch from main, implement, push, and open a PR
+alwaysApply: true
+---
+
+# GitHub issue workflow
+
+When the user says to work on an issue (e.g. "Let's work on issue #n", "work on #n"), run this full workflow. Do not wait for separate push or PR instructions.
+
+## Checklist
+
+1. **Fetch and branch from `main`**
+   - `git fetch origin`
+   - Create and check out a new branch from `origin/main` (not from another feature branch).
+   - Branch name: `issue/<number>-<short-slug>` from the issue title (lowercase, hyphenated, concise).
+   - Example: issue #2 "Add Classic vs Modern game mode" → `issue/2-classic-vs-modern`
+
+2. **Implement**
+   - Read the issue (`gh issue view n`) and implement only what it asks for.
+   - Follow existing project and user coding rules.
+
+3. **Commit**
+   - Commit on this branch as work lands (in scope when working an issue).
+   - Clear messages; reference `#n` in the commit body when useful.
+
+4. **Push**
+   - `git push -u origin HEAD` when ready for review.
+
+5. **Open a PR**
+   - `gh pr create` against `main`.
+   - Title: short summary ending with `(#n)`.
+   - Body: Summary, Test plan, and `Closes #n`.
+   - Return the PR URL to the user.
+   - Do **not** merge; leave approval and merge to the user.
+
+6. **Update the project board**
+   - On [Taipan roadmap](https://github.com/users/Processoriented/projects/2), set the issue Status to **In Progress**.
+   - Do not set Done; that follows merge/close.
