@@ -9,6 +9,17 @@ npm install
 npm run dev
 ```
 
+## Lint, typecheck, and test
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run test:watch
+```
+
+Pull requests and pushes to `main` run lint, typecheck, and test in GitHub Actions (workflow name **CI**, job **check**). After that workflow has run at least once, the repo owner should enable branch protection on `main` and require the CI check—required status is not enforced by the workflow file alone.
+
 ## Install a shared build
 
 Download a build from the [releases](https://github.com/Processoriented/taipan-clone/releases) page.
