@@ -39,17 +39,18 @@ When the user says to work on an issue (e.g. "Let's work on issue #n", "work on 
 
 ## After the user reports a PR is approved and merged
 
-When the user says a PR was approved and merged (for an issue branch from this workflow):
+When the user says a PR was approved and merged:
 
 1. **Confirm the merge landed on `main`**
    - `git fetch origin`
    - Check out `main` and fast-forward to `origin/main`
-   - Verify the merge commit / closed issue / board Done as appropriate
+   - Verify the merge commit (and closed issue / board Done when applicable)
    - Only proceed with cleanup after this confirmation succeeds
 
-2. **Delete the issue branch locally and on the remote**
-   - Local: `git branch -d issue/<number>-<slug>` (use `-D` only if it was fully merged and `-d` refuses for a false negative)
-   - Remote: `git push origin --delete issue/<number>-<slug>`
-   - Skip deletion if the branch name is unknown or was already removed
+2. **Delete the merged PR’s head branch locally and on the remote**
+   - Resolve the branch name from the PR (`gh pr view <n> --json headRefName`) or the known `issue/<number>-<slug>` / chore branch
+   - Local: `git branch -d <branch>` (use `-D` only if it was fully merged and `-d` refuses for a false negative)
+   - Remote: `git push origin --delete <branch>`
+   - Skip if the branch is already gone
 
 Do not delete unrelated branches. Do not delete `main`.
