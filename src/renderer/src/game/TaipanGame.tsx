@@ -23,12 +23,13 @@ function TaipanGame(): React.JSX.Element {
 
   useEffect(() => {
     if (!session) return
-    return startGame(session.state, {
+    const game = startGame(session.state, {
       persist,
       markDone,
       flush,
       onFrame: () => setFrame((frame) => frame + 1)
     })
+    return () => game.stop()
   }, [session, persist, markDone, flush])
 
   if (!session) {
