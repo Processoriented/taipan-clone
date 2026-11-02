@@ -134,6 +134,23 @@ export function startGame(
     pending.add(id)
   }
 
+  function clearPending(): void {
+    for (const id of pending) globalThis.clearTimeout(id)
+    pending.clear()
+  }
+
+  function isModern(): boolean {
+    return state.gameMode === 'modern'
+  }
+
+  function battleDelay(classicTicks: number, modernTicks: number): number {
+    return isModern() ? modernTicks : classicTicks
+  }
+
+  function fxMs(classicMs: number): number {
+    return isModern() ? Math.max(1, Math.round(classicMs / 2)) : classicMs
+  }
+
   function fnTimer(): void {
     if (state.delayTicks > 0) state.delayTicks--
     if (state.nextLine != '' && state.delayTicks == 0) fnMain(state.nextLine)
@@ -227,7 +244,7 @@ export function startGame(
     state.resumeLine = 5800
     if (px == 0) {
       px = 1
-      later(() => fnSink(ship, px, sinkDelay), 500)
+      later(() => fnSink(ship, px, sinkDelay), isModern() ? 200 : 500)
       return
     }
     const slot = state.view?.ships[ship]
@@ -248,12 +265,34 @@ export function startGame(
     }
   }
 
+  function skipModernSink(): void {
+    clearPending()
+    const view = state.view
+    if (view) {
+      for (let i = 0; i < 10; i++) {
+        const slot = view.ships[i]
+        if (slot.sinkY > 0 || (slot.present && state.enemySlots[i][0] == 0)) {
+          slot.present = false
+          slot.sinkY = 0
+          slot.muzzle = false
+          slot.damageFrame = null
+        }
+      }
+      view.enemyFlash = false
+    }
+    state.resumeLine = ''
+    state.nextLine = 5800
+    publish()
+  }
+
   function onKeyPress(e: KeyboardEvent): void {
     const key = e.charCode || e.keyCode
     if (key == 8) e.preventDefault()
   }
 
   function handleKeyDown(keyCode: number): void {
+    const modern = isModern()
+    if (modern && state.resumeLine === 5800) skipModernSink()
     state.delayTicks = 0
     let key = keyCode
     if (key == 8) {
@@ -304,6 +343,9 @@ export function startGame(
         state.inputText = inputValue
         touch()
       }
+    }
+    if (modern && state.nextLine !== '' && !(state.keyChoice && state.nextLine === 5190)) {
+      fnTimer()
     }
   }
 
@@ -1319,7 +1361,7 @@ export function startGame(
         fnAddShips()
         state.allowedInput = false
         state.keyChoice = [1, 5160, 'F', 'R']
-        state.delayTicks = state.battleOrder == 0 ? 12 : 4
+        state.delayTicks = state.battleOrder == 0 ? battleDelay(12, 3) : battleDelay(4, 1)
         state.nextLine = 5190
         fnKeyInput()
         break
@@ -1347,7 +1389,7 @@ export function startGame(
         state.keyChoice = false
         setLine4(nodes(cap('Aye'), ", we'll run, ", taipan(), '!'))
         fnKeyInput()
-        state.delayTicks = 4
+        state.delayTicks = battleDelay(4, 1)
         state.nextLine = 5210
         break
       case 5210:
@@ -1356,14 +1398,14 @@ export function startGame(
           state.escapeOdds = 3
           setLine4(nodes(cap('We'), " got away from 'em, ", taipan(), '!!'))
           fnKeyInput()
-          state.delayTicks = 4
+          state.delayTicks = battleDelay(4, 1)
           state.nextLine = 5900
           break
         }
       case 5220:
         setLine4(nodes(cap("Can't"), " lose 'em!!"))
         fnKeyInput()
-        state.delayTicks = 4
+        state.delayTicks = battleDelay(4, 1)
         state.nextLine = 5230
         break
       case 5230:
@@ -1373,7 +1415,7 @@ export function startGame(
           if (state.shipsOnScreen > state.enemyShips) fnRemoveShips()
           setLine4(nodes(cap('But'), ' we escaped from ', escaped, " of 'em, ", taipan(), '!'))
           fnKeyInput()
-          state.delayTicks = 4
+          state.delayTicks = battleDelay(4, 1)
           state.nextLine = 5500
           break
         } else {
@@ -1386,14 +1428,14 @@ export function startGame(
         if (state.guns == 0) {
           setLine4(nodes(cap('We'), ' have no guns, ', taipan(), '!!'))
           fnKeyInput()
-          state.delayTicks = 4
+          state.delayTicks = battleDelay(4, 1)
           state.nextLine = 5500
           break
         }
         state.gunsFired = 0
         setLine4(nodes(cap('Aye'), ", we'll fight 'em, ", taipan(), '!'))
         fnKeyInput()
-        state.delayTicks = 4
+        state.delayTicks = battleDelay(4, 1)
         state.nextLine = 5310
         break
       case 5310:
@@ -1411,11 +1453,11 @@ export function startGame(
           break
         }
         fnFire(shot, true)
-        later(() => fnFire(shot, false), 75)
-        later(() => fnFire(shot, true), 150)
-        later(() => fnFire(shot, false), 225)
-        later(() => fnFire(shot, true), 300)
-        later(() => fnFire(shot, false), 375)
+        later(() => fnFire(shot, false), fxMs(75))
+        later(() => fnFire(shot, true), fxMs(150))
+        later(() => fnFire(shot, false), fxMs(225))
+        later(() => fnFire(shot, true), fxMs(300))
+        later(() => fnFire(shot, false), fxMs(375))
         ensureView().ships[shot].damageFrame = fR(11)
         state.enemySlots[shot][1] += fR(30) + 10
         if (state.enemySlots[shot][1] > state.enemySlots[shot][0]) {
@@ -1424,11 +1466,11 @@ export function startGame(
           state.enemyShips--
           state.shipsOnScreen--
           state.shipsSunk++
-          fnSink(shot, 0, fR(20) == 0 ? 40 : 20)
+          fnSink(shot, 0, fR(20) == 0 ? battleDelay(40, 16) : battleDelay(20, 8))
           break
         }
         fnKeyInput()
-        state.delayTicks = 2
+        state.delayTicks = battleDelay(2, 0)
         state.nextLine = 5320
         break
       case 5340:
@@ -1436,7 +1478,7 @@ export function startGame(
           setLine4(nodes(cap('Sunk'), ' ', state.shipsSunk, ' of the buggers, ', taipan(), '!'))
         else setLine4(nodes(cap('Hit'), " 'em, but didn't sink 'em, ", taipan(), '!'))
         fnKeyInput()
-        state.delayTicks = 4
+        state.delayTicks = battleDelay(4, 1)
         state.nextLine = 5360
         break
       case 5360:
@@ -1457,38 +1499,39 @@ export function startGame(
           if (state.shipsOnScreen > state.enemyShips) fnRemoveShips()
           setLine4(nodes(escaped, ' ran away, ', taipan(), '!'))
           fnKeyInput()
-          state.delayTicks = 4
+          state.delayTicks = battleDelay(4, 1)
           state.nextLine = 5500
         }
         break
       case 5400:
+        // Throw Cargo deferred: keyChoice never offers 'T'; no jettison logic; falls through to 5500.
         state.keyChoice = false
       case 5500:
         if (state.enemyShips == 0) {
           state.escapeOdds = 1
           setLine4(nodes(cap('We'), " got 'em all, ", taipan(), '!!'))
           fnKeyInput()
-          state.delayTicks = 4
+          state.delayTicks = battleDelay(4, 1)
           state.nextLine = 5900
           break
         }
         setLine4(nodes(cap("They're"), ' firing on us, ', taipan(), '!'))
         fnEnemyFire(true)
-        later(() => fnEnemyFire(false), 75)
-        later(() => fnEnemyFire(true), 150)
-        later(() => fnEnemyFire(false), 225)
-        later(() => fnEnemyFire(true), 300)
-        later(() => fnEnemyFire(false), 375)
-        later(() => fnEnemyFire(true), 450)
-        later(() => fnEnemyFire(false), 525)
+        later(() => fnEnemyFire(false), fxMs(75))
+        later(() => fnEnemyFire(true), fxMs(150))
+        later(() => fnEnemyFire(false), fxMs(225))
+        later(() => fnEnemyFire(true), fxMs(300))
+        later(() => fnEnemyFire(false), fxMs(375))
+        later(() => fnEnemyFire(true), fxMs(450))
+        later(() => fnEnemyFire(false), fxMs(525))
         fnKeyInput()
-        state.delayTicks = 4
+        state.delayTicks = battleDelay(4, 1)
         state.nextLine = 5510
         break
       case 5510:
         setLine4(nodes(cap("We've"), ' been hit, ', taipan(), '!!'))
         fnKeyInput()
-        state.delayTicks = 4
+        state.delayTicks = battleDelay(4, 1)
         state.nextLine = 5540
         break
       case 5540:
@@ -1503,7 +1546,7 @@ export function startGame(
           state.holdRoom += 10
           setLine4(nodes(cap('The'), ' buggers hit a gun, ', taipan(), '!!'))
           fnKeyInput()
-          state.delayTicks = 4
+          state.delayTicks = battleDelay(4, 1)
           state.nextLine = 5550
           break
         }
@@ -1521,7 +1564,7 @@ export function startGame(
         state.nextLine = 5060
         break
       case 5800:
-        state.delayTicks = 2
+        state.delayTicks = battleDelay(2, 0)
         state.nextLine = 5320
         break
       case 5900:
@@ -1543,7 +1586,7 @@ export function startGame(
         show('port')
         state.keyChoice = false
         fnKeyInput()
-        state.delayTicks = 10
+        state.delayTicks = battleDelay(10, 3)
         state.nextLine = 3300
         break
       case 10000:
