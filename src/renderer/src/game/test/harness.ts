@@ -130,12 +130,8 @@ export function advanceToPortMenu(game: GameSession, state: GameState): void {
 
 export function isBattleOrders(state: GameState): boolean {
   const choice = state.keyChoice
-  return (
-    Array.isArray(choice) &&
-    choice.includes('F') &&
-    choice.includes('R') &&
-    state.view?.screen === 'battle'
-  )
+  // Modern unarmed battles offer Run only; Classic always offers Fight and Run.
+  return Array.isArray(choice) && choice.includes('R') && state.view?.screen === 'battle'
 }
 
 export function isPortMenu(state: GameState): boolean {
