@@ -1,50 +1,15 @@
-import { app, dialog, shell, BrowserWindow, type MessageBoxOptions } from 'electron'
+import { app, dialog, BrowserWindow, type MessageBoxOptions } from 'electron'
+import { autoUpdater } from 'electron-updater'
 
-const RELEASES_URL = 'https://api.github.com/repos/Processoriented/taipan-clone/releases/latest'
-const RELEASE_PAGE = 'https://github.com/Processoriented/taipan-clone/releases/latest'
+autoUpdater.autoDownload = true
+autoUpdater.autoInstallOnAppQuit = true
 
-type Version = [number, number, number]
-
-function parseVersion(value: string): Version | null {
-  const match = /^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?/i.exec(value.trim())
-  if (!match) return null
-  return [Number(match[1]), Number(match[2] ?? 0), Number(match[3] ?? 0)]
-}
-
-function formatVersion(version: Version): string {
-  return version.join('.')
-}
-
-function isNewer(latest: Version, current: Version): boolean {
-  for (let index = 0; index < 3; index += 1) {
-    if (latest[index] !== current[index]) return latest[index] > current[index]
-  }
-  return false
-}
-
-type LatestRelease = { version: Version; url: string }
-
-async function fetchLatestRelease(): Promise<LatestRelease | 'none'> {
-  const response = await fetch(RELEASES_URL, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      'User-Agent': 'taipan-clone'
-    },
-    signal: AbortSignal.timeout(15000)
-  })
-  if (response.status === 404) return 'none'
-  if (!response.ok) throw new Error(`GitHub releases responded ${response.status}`)
-  const body = (await response.json()) as { tag_name?: unknown; html_url?: unknown }
-  if (typeof body.tag_name !== 'string') throw new Error('Release is missing a version')
-  const version = parseVersion(body.tag_name)
-  if (!version) throw new Error(`Could not read release version ${body.tag_name}`)
-  const url = typeof body.html_url === 'string' ? body.html_url : RELEASE_PAGE
-  return { version, url }
-}
+let downloadedVersion: string | null = null
+let prompting = false
+let listenersInstalled = false
 
 function parentWindow(): BrowserWindow | undefined {
-  const parent = BrowserWindow.getAllWindows().find((window) => !window.isDestroyed())
-  return parent
+  return BrowserWindow.getAllWindows().find((window) => !window.isDestroyed())
 }
 
 function showMessage(options: MessageBoxOptions): Promise<Electron.MessageBoxReturnValue> {
@@ -53,73 +18,83 @@ function showMessage(options: MessageBoxOptions): Promise<Electron.MessageBoxRet
   return dialog.showMessageBox(options)
 }
 
-async function runCheck(interactive: boolean): Promise<void> {
-  const current = parseVersion(app.getVersion())
-  if (!current) {
-    if (interactive) {
-      await showMessage({
-        type: 'warning',
-        message: 'Could not check for updates.',
-        detail: `The app version "${app.getVersion()}" is not a release number.`
-      })
-    }
-    return
-  }
-
-  let latest: LatestRelease | 'none'
+async function promptRestart(version: string): Promise<void> {
+  if (prompting) return
+  prompting = true
   try {
-    latest = await fetchLatestRelease()
-  } catch (error) {
-    console.error(error)
-    if (interactive) {
-      await showMessage({
-        type: 'warning',
-        message: 'Could not check for updates.',
-        detail: 'Check your connection and try again.'
-      })
-    }
-    return
-  }
-
-  if (latest === 'none') {
-    if (interactive) {
-      await showMessage({
-        type: 'info',
-        message: 'No release has been published yet.',
-        detail: `You are running ${formatVersion(current)}.`
-      })
-    }
-    return
-  }
-
-  if (isNewer(latest.version, current)) {
     const result = await showMessage({
       type: 'info',
-      message: `Taipan ${formatVersion(latest.version)} is available.`,
-      detail: `You are running ${formatVersion(current)}.`,
-      buttons: ['Download', 'Later'],
+      message: `Taipan ${version} is ready to install.`,
+      detail: 'Restart now to update, or install it the next time you quit.',
+      buttons: ['Restart', 'Later'],
       defaultId: 0,
       cancelId: 1
     })
-    if (result.response === 0) await shell.openExternal(latest.url)
-    return
+    if (result.response === 0) autoUpdater.quitAndInstall(true, true)
+  } catch (error) {
+    console.error(error)
+  } finally {
+    prompting = false
   }
+}
 
-  if (!interactive) return
+function installListeners(): void {
+  if (listenersInstalled) return
+  listenersInstalled = true
+  autoUpdater.on('update-downloaded', (info) => {
+    downloadedVersion = info.version
+    void promptRestart(info.version)
+  })
+}
 
-  if (isNewer(current, latest.version)) {
+async function showLatest(): Promise<void> {
+  await showMessage({
+    type: 'info',
+    message: `Taipan ${app.getVersion()} is the latest release.`
+  })
+}
+
+async function showFailure(): Promise<void> {
+  await showMessage({
+    type: 'warning',
+    message: 'Could not check for updates.',
+    detail: 'Check your connection and try again.'
+  })
+}
+
+async function runCheck(interactive: boolean): Promise<void> {
+  if (!app.isPackaged) {
+    if (!interactive) return
     await showMessage({
       type: 'info',
-      message: `You are running ${formatVersion(current)}.`,
-      detail: `The latest release is ${formatVersion(latest.version)}.`
+      message: 'Updates run in an installed build.',
+      detail: 'This development copy does not check GitHub for a newer release.'
     })
     return
   }
 
-  await showMessage({
-    type: 'info',
-    message: `Taipan ${formatVersion(current)} is the latest release.`
-  })
+  installListeners()
+
+  if (downloadedVersion) {
+    if (interactive) await promptRestart(downloadedVersion)
+    return
+  }
+
+  try {
+    const result = await autoUpdater.checkForUpdates()
+    if (result == null || (result.isUpdateAvailable && result.downloadPromise == null)) {
+      if (interactive) await showFailure()
+      return
+    }
+    if (!result.isUpdateAvailable) {
+      if (interactive) await showLatest()
+      return
+    }
+    await result.downloadPromise
+  } catch (error) {
+    console.error(error)
+    if (interactive) await showFailure()
+  }
 }
 
 let pending: Promise<void> = Promise.resolve()

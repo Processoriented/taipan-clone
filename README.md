@@ -26,15 +26,17 @@ Pull requests and pushes to `main` run lint, typecheck, and test in GitHub Actio
 
 Download a build from the [releases](https://github.com/Processoriented/taipan-clone/releases) page.
 
-- macOS: open the DMG and drag Taipan to Applications. The download is quarantined, and the app is not signed with an Apple Developer ID, so right-click Open is not enough. In Terminal, run `xattr -cr /Applications/Taipan.app`, then open Taipan. You can instead allow it under System Settings, Privacy & Security, Open Anyway.
-- Windows: run the installer. It installs for the current user and does not ask for an administrator password. SmartScreen will say the publisher is unknown. Choose More info, then Run anyway.
+- macOS: open the DMG and drag Taipan to Applications. Current releases are signed with an Apple Developer ID and notarized. Older unsigned builds stay quarantined; for those, run `xattr -cr /Applications/Taipan.app` in Terminal, then open Taipan.
+- Windows: run the installer. It installs for the current user and does not ask for an administrator password. The installer is not code-signed, so SmartScreen says the publisher is unknown. Choose More info, then Run anyway. That warning applies to the first installer. Later updates install from inside the app.
 
-Those prompts come back for each new download. Saves stay in the app data folder, so a newer install keeps them:
+Saves stay in the app data folder, so a newer install keeps them:
 
 - macOS: `~/Library/Application Support/Taipan/saves`
 - Windows: `%APPDATA%\Taipan\saves`
 
-The installed app checks GitHub when it opens. If a newer release exists, it links to the download. Check for Updates is in the Taipan menu.
+v1.0.5 and later check GitHub when the installed app opens. A newer release downloads in the background. When it is ready, Taipan asks you to restart now or later. Later installs the update the next time you quit. Check for Updates in the Taipan menu reports that you are up to date, or that the check failed. A failed check does not stop the app from opening. `npm run dev` does not check.
+
+v1.0.4 and earlier open the release page when a newer build exists. Install v1.0.5 once from that page. Releases after that update from inside the app.
 
 ## Publish a patch
 
@@ -47,7 +49,7 @@ git tag v1.0.1
 git push origin v1.0.1
 ```
 
-The tag has to be `v` plus the version in `package.json`. GitHub Actions builds a universal macOS DMG and a Windows installer and attaches them to that release.
+The tag has to be `v` plus the version in `package.json`. GitHub Actions builds a universal macOS DMG, a macOS zip, and a Windows installer. It attaches those files, plus `latest-mac.yml`, `latest.yml`, and the blockmaps, to that release. The installed app downloads the zip on macOS and the installer on Windows.
 
 Builds can also be made locally:
 
@@ -56,7 +58,10 @@ npm run build:mac
 npm run build:win
 ```
 
-Silent auto-update is not included. macOS only installs those updates for apps signed with a paid Apple Developer ID. `electron-builder.yml` already publishes to this GitHub repository, which is the setting that later step would use.
+Signing:
+
+- macOS updates need the Developer ID certificate and notarization key the release workflow already uses (`CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`). The release has to include the zip and `latest-mac.yml`. The DMG is only for the first install.
+- Windows builds have no code-signing certificate. SmartScreen still applies to the first installer. The per-user NSIS update applies without a certificate. A certificate would clear the unknown-publisher warning on that first installer.
 
 ## Icons
 
