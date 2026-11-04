@@ -16,10 +16,17 @@ jobs:
         include:
           - os: macos-latest
             artifact: mac
-            path: dist/*.dmg
+            path: |
+              dist/*.dmg
+              dist/*.zip
+              dist/latest-mac.yml
+              dist/*.blockmap
           - os: windows-latest
             artifact: win
-            path: dist/*.exe
+            path: |
+              dist/*.exe
+              dist/latest.yml
+              dist/*.blockmap
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -48,6 +55,15 @@ jobs:
       - name: Build Windows
         if: runner.os == 'Windows'
         run: npm run build:win -- --publish never
+      - name: Require updater metadata
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            test -f dist/latest-mac.yml
+            test -n "$(find dist -name '*.zip' -print -quit)"
+          else
+            test -f dist/latest.yml
+          fi
       - uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.artifact }}
@@ -66,7 +82,10 @@ jobs:
         with:
           files: |
             dist/**/*.dmg
+            dist/**/*.zip
             dist/**/*.exe
+            dist/**/*.yml
+            dist/**/*.blockmap
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

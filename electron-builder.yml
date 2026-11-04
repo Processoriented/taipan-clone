@@ -37,6 +37,9 @@ mac:
     - target: dmg
       arch:
         - universal
+    - target: zip
+      arch:
+        - universal
 dmg:
   artifactName: Taipan-${version}-mac.${ext}
 linux:
