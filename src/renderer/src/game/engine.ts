@@ -1,6 +1,6 @@
 import type { GameState, Line } from '../../../shared/save'
 import type { GameView, RichNode } from '../../../shared/view'
-import { formatMoney, seaworthinessLine } from './format'
+import { formatMoney, seaworthiness, seaworthinessLine, shipStatusLabel } from './format'
 import {
   afford,
   br,
@@ -184,6 +184,60 @@ export function startGame(
 
   function good(index: number): RichNode[] {
     return goodNodes(String(state.goods[index][0]))
+  }
+
+  function holdHasCargo(): boolean {
+    return state.cargo[1].some((qty) => qty > 0)
+  }
+
+  function blowOffCourse(): void {
+    const previousLocation = Number(state.location)
+    while (Number(state.location) === previousLocation) state.location = fR(7) + 1
+  }
+
+  function applyStormNick(): number {
+    const room = state.shipCapacity - state.damage - 1
+    if (room <= 0) return 0
+    const nick = Mm(Mf(state.shipCapacity * 0.05), room)
+    state.damage += nick
+    return nick
+  }
+
+  function cutHoldCargo(): RichNode[] {
+    const hold = state.cargo[1]
+    let dumpedAny = false
+    const dumped = hold.map((qty) => {
+      const loss = Mf(qty * 0.25)
+      if (loss > 0) dumpedAny = true
+      return loss
+    })
+    if (!dumpedAny) {
+      let largest = 0
+      for (let i = 1; i < hold.length; i++) {
+        if (hold[i] > hold[largest]) largest = i
+      }
+      if (hold[largest] > 0) dumped[largest] = 1
+    }
+    const named: RichNode[][] = []
+    for (let i = 0; i < hold.length; i++) {
+      if (dumped[i] <= 0) continue
+      const loss = Mm(dumped[i], hold[i])
+      hold[i] -= loss
+      state.holdRoom += loss
+      named.push(nodes(loss, ' ', good(i)))
+    }
+    const out: RichNode[] = []
+    for (let i = 0; i < named.length; i++) {
+      if (i > 0) out.push({ kind: 'text', text: i === named.length - 1 ? ' and ' : ', ' })
+      out.push(...named[i])
+    }
+    return out
+  }
+
+  function shipNow(): RichNode[] {
+    const worth = seaworthiness(state.damage, state.shipCapacity)
+    const label = shipStatusLabel(state.damage, state.shipCapacity)
+    return nodes(cap('She'), "'s ", cap(label), ' (', String(worth), '%).')
   }
 
   function resetShips(): void {
@@ -1277,7 +1331,7 @@ export function startGame(
           say(nodes(captain(), cap('Storm'), ', ', taipan(), '!!'))
           fnKeyInput()
           state.delayTicks = 4
-          state.nextLine = 3320
+          state.nextLine = isModern() ? 'STORMQ' : 3320
           break
         } else {
           fnKeyInput()
@@ -1298,6 +1352,139 @@ export function startGame(
           state.nextLine = 3330
           break
         }
+      case 'STORMQ':
+        state.allowedInput = false
+        state.keyChoice = holdHasCargo() ? [1, 'STORM2', 'R', 'W', 'C'] : [1, 'STORM2', 'R', 'W']
+        say(
+          nodes(
+            captain(),
+            cap('Storm'),
+            ', ',
+            taipan(),
+            '!!',
+            br,
+            shipNow(),
+            br,
+            br,
+            cap('Your'),
+            ' orders are to:',
+            br,
+            'R) ',
+            cap('Ride'),
+            ' it out',
+            br,
+            'W) ',
+            cap('Run'),
+            ' before the wind',
+            ...(holdHasCargo() ? [br, 'C) ', cap('Cut'), ' cargo loose'] : []),
+            ' ',
+            prompt
+          )
+        )
+        state.nextLine = ''
+        state.delayTicks = 0
+        fnKeyInput()
+        break
+      case 'STORM2':
+        state.keyChoice = false
+        if (inputValue == 'W') {
+          const nick = applyStormNick()
+          blowOffCourse()
+          say(
+            nodes(
+              captain(),
+              cap('We'),
+              ' made it!! ',
+              cap('Running'),
+              ' before the wind cost us our heading.',
+              br,
+              cap('The'),
+              ' hull took ',
+              nick,
+              '.',
+              br,
+              "We've been blown off course",
+              br,
+              'to ',
+              cityNodes(Number(state.location))
+            )
+          )
+          fnKeyInput()
+          state.delayTicks = 4
+          state.nextLine = 'ARR1'
+          break
+        }
+        if (inputValue == 'C' && holdHasCargo()) {
+          const cut = cutHoldCargo()
+          const nick = applyStormNick()
+          say(
+            nodes(
+              captain(),
+              cap('We'),
+              ' cut loose ',
+              cut,
+              '.',
+              br,
+              cap('We'),
+              ' made it!! ',
+              cap('The'),
+              ' hull took ',
+              nick,
+              '.',
+              br,
+              shipNow()
+            )
+          )
+          fnKeyInput()
+          state.delayTicks = 4
+          state.nextLine = 3340
+          break
+        }
+        {
+          const worth = seaworthiness(state.damage, state.shipCapacity)
+          const added = Mf(state.shipCapacity * 0.2) + Mf(state.damage * 0.25)
+          if (state.damage + added >= state.shipCapacity) {
+            state.damage += added
+            say(
+              nodes(
+                captain(),
+                cap('She'),
+                "'s only ",
+                String(worth),
+                '% seaworthy. ',
+                cap('The'),
+                ' hull was already too weak.',
+                br,
+                cap("We're"),
+                ' going down, ',
+                taipan(),
+                '!!'
+              )
+            )
+            fnKeyInput()
+            state.delayTicks = 4
+            state.nextLine = 20000
+            break
+          }
+          state.damage += added
+          say(
+            nodes(
+              captain(),
+              cap('We'),
+              ' made it!! ',
+              cap('The'),
+              ' hull took ',
+              added,
+              '.',
+              br,
+              shipNow()
+            )
+          )
+          fnKeyInput()
+          state.delayTicks = 4
+          state.nextLine = 3340
+          break
+        }
       case 'STORM':
         if (fR((state.damage / state.shipCapacity) * 3) == 0) {
           add(nodes(br, br, cap("We're"), ' going down, ', taipan(), '!!'))
@@ -1314,8 +1501,7 @@ export function startGame(
         break
       case 3340:
         if (fR(3) == 0) {
-          const previousLocation = Number(state.location)
-          while (Number(state.location) == previousLocation) state.location = fR(7) + 1
+          blowOffCourse()
           say(
             nodes(
               captain(),
