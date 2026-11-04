@@ -327,6 +327,43 @@ td {
   visibility: hidden;
 }
 
+/* Modern-only battle HUD: bottom band below ship grid (~y 304–530). Hidden in Classic. */
+.screen-battle .battle-hud-modern {
+  display: none;
+}
+
+.screen-battle.modern .battle-hud-modern {
+  display: flex;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  box-sizing: border-box;
+  min-height: 2.4em;
+  padding: 4px 10px 6px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: solid 2px #0f0;
+  background: #000;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.battle-hud-status,
+.battle-hud-salvo {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.battle-hud-salvo {
+  text-align: right;
+  flex-shrink: 0;
+}
+
 .prompt-input {
   font-size: 14pt;
 }

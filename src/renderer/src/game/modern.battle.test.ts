@@ -65,4 +65,26 @@ describe('Modern battle pacing', () => {
     // Immediate timer drains 5800 (0 modern ticks) into the fight loop.
     expect(state.nextLine).toBe(5320)
   })
+
+  it('forces Run-only orders when Modern and unarmed', () => {
+    const started = reachBattleOrders('modern', 22)
+    const { state } = started
+
+    expect(state.guns).toBe(0)
+    expect(state.battleOrder).toBe('R')
+    expect(state.keyChoice).toEqual([1, 5160, 'R'])
+    expect(state.keyChoice).not.toContain('F')
+
+    game!.flushDelays()
+    expect(state.battleOrder).toBe('R')
+    expect(state.view?.screen === 'battle' || state.view?.screen === 'port').toBe(true)
+  })
+
+  it('still offers Fight in Classic when unarmed', () => {
+    const started = reachBattleOrders('classic', 22)
+    const { state } = started
+
+    expect(state.guns).toBe(0)
+    expect(state.keyChoice).toEqual([1, 5160, 'F', 'R'])
+  })
 })

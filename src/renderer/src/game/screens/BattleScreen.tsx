@@ -10,6 +10,7 @@ import dm8 from '../../assets/dm8.gif'
 import dm9 from '../../assets/dm9.gif'
 import dm10 from '../../assets/dm10.gif'
 import type { GameState } from '../../../../shared/save'
+import { seaworthiness, shipStatusLabel } from '../format'
 import { Cap } from './Cap'
 import { RichTextView } from './RichTextView'
 
@@ -18,8 +19,14 @@ const damageGifs = [dm0, dm1, dm2, dm3, dm4, dm5, dm6, dm7, dm8, dm9, dm10]
 export function BattleScreen({ state }: { state: GameState }): React.JSX.Element {
   const view = state.view
   const ships = view?.ships ?? []
+  const modern = state.gameMode === 'modern'
+  const status = shipStatusLabel(state.damage, state.shipCapacity)
+  const seaworthy = seaworthiness(state.damage, state.shipCapacity)
+  const inSalvo = state.battleOrder === 'F' && state.guns > 0
+  const shotsLeft = Math.max(0, state.guns - state.gunsFired)
+
   return (
-    <div className="screen-battle">
+    <div className={modern ? 'screen-battle modern' : 'screen-battle'}>
       <div className="f0">
         <div>
           <span>{state.enemyShips}</span> ships attacking, <Cap text="Taipan" />!
@@ -53,6 +60,20 @@ export function BattleScreen({ state }: { state: GameState }): React.JSX.Element
       ))}
       {view?.showExtraShips ? <div className="plus">+</div> : <div className="plus" />}
       <div className="ef" style={{ visibility: view?.enemyFlash ? 'visible' : 'hidden' }} />
+      <div className="battle-hud-modern">
+        <div className="battle-hud-status">
+          <Cap text="Ship" />: <Cap text={status} /> ({seaworthy}%)
+        </div>
+        <div className="battle-hud-salvo">
+          {inSalvo ? (
+            <>
+              <Cap text="Salvo" />: {shotsLeft}/{state.guns}
+            </>
+          ) : (
+            '\u00a0'
+          )}
+        </div>
+      </div>
     </div>
   )
 }

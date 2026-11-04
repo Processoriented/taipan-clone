@@ -1360,8 +1360,18 @@ export function startGame(
       case 5100:
         fnAddShips()
         state.allowedInput = false
-        state.keyChoice = [1, 5160, 'F', 'R']
-        state.delayTicks = state.battleOrder == 0 ? battleDelay(12, 3) : battleDelay(4, 1)
+        {
+          const firstOrders = state.battleOrder == 0
+          if (isModern() && state.guns == 0) {
+            state.battleOrder = 'R'
+            state.keyChoice = [1, 5160, 'R']
+            setLine2(nodes(cap('Your'), ' orders are to: ', cap('Run')))
+            setLine4(nodes(cap('We'), ' have no guns, ', taipan(), '!!'))
+          } else {
+            state.keyChoice = [1, 5160, 'F', 'R']
+          }
+          state.delayTicks = firstOrders ? battleDelay(12, 3) : battleDelay(4, 1)
+        }
         state.nextLine = 5190
         fnKeyInput()
         break
@@ -1426,6 +1436,12 @@ export function startGame(
       case 5300:
         state.keyChoice = false
         if (state.guns == 0) {
+          if (isModern()) {
+            state.battleOrder = 'R'
+            state.delayTicks = 0
+            state.nextLine = 5200
+            break
+          }
           setLine4(nodes(cap('We'), ' have no guns, ', taipan(), '!!'))
           fnKeyInput()
           state.delayTicks = battleDelay(4, 1)
