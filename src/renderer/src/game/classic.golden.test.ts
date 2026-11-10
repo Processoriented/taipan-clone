@@ -59,6 +59,24 @@ describe('Classic golden paths', () => {
         '9'
       ])
     })
+
+    it('still sends a paid repair on to Elder Brother Wu', () => {
+      const started = startCashGame(1)
+      game = started.game
+      const { state } = started
+      advanceToPortMenu(game, state)
+
+      state.damage = 20
+      state.cash = 100000
+      runLine(game, state, 1120)
+      submit(game, 'Y')
+      submit(game, 'A')
+
+      expect(state.damage).toBe(0)
+      expect(state.cash).toBeLessThan(100000)
+      expect(messageText(state)).toMatch(/Wu/)
+      expect(state.allowedInput).toEqual([1, 1310, 'Y', 'N'])
+    })
   })
 
   describe('storm path / undamaged-ship sink quirk', () => {

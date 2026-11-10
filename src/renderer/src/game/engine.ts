@@ -409,6 +409,181 @@ export function startGame(
     handleKeyDown(key)
   }
 
+  function quoteRepairCost(): void {
+    state.repairCost = Mf(
+      ((fR((60 * (state.monthsElapsed + 3)) / 4) + (25 * (state.monthsElapsed + 3)) / 4) *
+        state.shipCapacity) /
+        50
+    )
+  }
+
+  function applyRepairPayment(amount: number): void {
+    const damageRepaired = Mf((state.damage * amount) / state.repairCost)
+    state.damage = damageRepaired <= state.damage ? state.damage - damageRepaired : 0
+    state.cash -= amount
+  }
+
+  function repairSpendPrompt(extra: RichNode[]): RichNode[] {
+    return nodes(
+      comprador(),
+      cap('Och'),
+      ", 'tis a pity to be ",
+      Mf((state.damage / state.shipCapacity) * 100),
+      '% damaged.',
+      br,
+      cap('We'),
+      ' can fix yer whole ship for ',
+      formatMoney(state.repairCost),
+      br,
+      'or make partial repairs if you wish.',
+      br,
+      cap('How'),
+      ' much will ye spend? ',
+      prompt,
+      extra
+    )
+  }
+
+  // Withdraw everything, then one Wu loan of twice the cash on hand.
+  // A loan already taken this visit cannot be repeated.
+  function repairBudget(): number {
+    const onHand = state.cash + state.bank
+    return state.wuLoanTaken ? onHand : onHand * 3
+  }
+
+  function unaffordableRepair(): RichNode[] {
+    const limit = state.wuLoanTaken
+      ? nodes(cap('Even'), ' with the bank, ye cannot')
+      : nodes(cap('Even'), ' with the bank and ', cap('Wu'), ', ye cannot')
+    const partial =
+      state.cash > 0
+        ? nodes(br, 'afford a full repair. Partial', br, 'repairs are welcome.')
+        : nodes(br, 'afford a full repair.')
+    return nodes(br, limit, partial, br, cap('Enter'), ' 0 to return to port.')
+  }
+
+  function modernRepairAdvice(): RichNode[] {
+    if (repairBudget() < state.repairCost) return unaffordableRepair()
+    if (state.cash < state.repairCost) {
+      const raise = state.wuLoanTaken
+        ? nodes(cap('Visit'), ' the bank, then call again.')
+        : nodes(cap('Visit'), ' the bank or see ', cap('Wu'), ', then call again.')
+      return nodes(
+        br,
+        cap('Ye'),
+        ' have only ',
+        formatMoney(state.cash),
+        ' in cash.',
+        br,
+        raise,
+        br,
+        cap('Enter'),
+        ' 0 to return to port.'
+      )
+    }
+    return nodes(br, cap('Enter'), ' 0 to return to port.')
+  }
+
+  function shortOfRepairCash(): RichNode[] {
+    const advice =
+      state.bank > 0 || state.cash > 0
+        ? nodes(
+            br,
+            br,
+            cap('Visit'),
+            ' the bank or see ',
+            cap('Wu'),
+            ', or ',
+            cap('Enter'),
+            br,
+            '0 to return to port.'
+          )
+        : nodes(br, br, cap('Enter'), ' 0 to return to port.')
+    return nodes(comprador(), taipan(), ', you do not have enough cash!!', advice)
+  }
+
+  function wuAlreadyLent(): RichNode[] {
+    return nodes(
+      comprador(),
+      cap('Elder'),
+      ' ',
+      cap('Brother'),
+      ' ',
+      cap('Wu'),
+      ' has already',
+      br,
+      'lent to you this visit, ',
+      taipan(),
+      '.',
+      br,
+      cap('Enter'),
+      ' 0 to return to port.'
+    )
+  }
+
+  function wuBorrowPrompt(): RichNode[] {
+    if (state.wuLoanTaken) {
+      return nodes(wuAlreadyLent(), ' ', prompt)
+    }
+    if (state.cash <= 0 && state.bank <= 0) {
+      return nodes(
+        comprador(),
+        cap('How'),
+        ' much do you wish to',
+        br,
+        'borrow? ',
+        prompt,
+        br,
+        cap('Ye'),
+        ' have no cash and nothing in the',
+        br,
+        'bank, so ',
+        cap('Wu'),
+        ' will not lend.',
+        br,
+        cap('Enter'),
+        ' 0 to return to port.'
+      )
+    }
+    if (state.cash <= 0) {
+      return nodes(
+        comprador(),
+        cap('How'),
+        ' much do you wish to',
+        br,
+        'borrow? ',
+        prompt,
+        br,
+        cap('Ye'),
+        ' have no cash on hand, so ',
+        cap('Wu'),
+        br,
+        'will not lend. ',
+        cap('Visit'),
+        ' the bank, or',
+        br,
+        cap('Enter'),
+        ' 0 to return to port.'
+      )
+    }
+    return nodes(
+      comprador(),
+      cap('How'),
+      ' much do you wish to',
+      br,
+      'borrow? ',
+      prompt,
+      br,
+      cap('He'),
+      ' will loan at most ',
+      formatMoney(state.cash * 2),
+      '.',
+      br,
+      cap('Enter'),
+      ' 0 to return to port.'
+    )
+  }
+
   // The cases below fall through on purpose. That is the original line-numbered flow.
   /* eslint-disable no-fallthrough */
   function fnMain(line: Line): void {
@@ -433,6 +608,7 @@ export function startGame(
           }
         }
       case 1030:
+        state.wuLoanTaken = 0
         if (state.location != 1) {
           state.nextLine = 1500
           state.delayTicks = 0
@@ -564,6 +740,12 @@ export function startGame(
           break
         }
       case 1120:
+        // Modern opens McHenry and Wu from the Hong Kong port menu, in any order.
+        if (isModern()) {
+          state.nextLine = 1500
+          state.delayTicks = 0
+          break
+        }
         if (state.location == 1 && state.damage > 0) {
           say(
             nodes(
@@ -605,31 +787,9 @@ export function startGame(
           break
         }
       case 1140:
-        state.repairCost = Mf(
-          ((fR((60 * (state.monthsElapsed + 3)) / 4) + (25 * (state.monthsElapsed + 3)) / 4) *
-            state.shipCapacity) /
-            50
-        )
+        quoteRepairCost()
       case 1145:
-        say(
-          nodes(
-            comprador(),
-            cap('Och'),
-            ", 'tis a pity to be ",
-            Mf((state.damage / state.shipCapacity) * 100),
-            '% damaged.',
-            br,
-            cap('We'),
-            ' can fix yer whole ship for ',
-            formatMoney(state.repairCost),
-            br,
-            'or make partial repairs if you wish.',
-            br,
-            cap('How'),
-            ' much will ye spend? ',
-            prompt
-          )
-        )
+        say(repairSpendPrompt([]))
         state.allowedInput = [9, 1150, 'A', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
         fnKeyInput()
         break
@@ -646,11 +806,7 @@ export function startGame(
           state.nextLine = 1145
           break
         }
-        {
-          const damageRepaired = Mf((state.damage * amount) / state.repairCost)
-          state.damage = damageRepaired <= state.damage ? state.damage - damageRepaired : 0
-        }
-        state.cash -= amount
+        applyRepairPayment(amount)
       case 1210:
       case 1300:
         if (state.location == 1) {
@@ -811,17 +967,22 @@ export function startGame(
         }
       case 'R-ROBBED':
       case 'PORT2': {
+        const hkServices = isModern() && state.location == 1
         if (state.location == 1 && state.cash + state.bank >= 1e6) {
           state.portPrompt = 0
-          state.allowedInput = [1, 'PORT3', 'B', 'S', 'V', 'T', 'R', 'Q']
+          state.allowedInput = hkServices
+            ? [1, 'PORT3', 'B', 'S', 'V', 'T', 'M', 'W', 'R', 'Q']
+            : [1, 'PORT3', 'B', 'S', 'V', 'T', 'R', 'Q']
         } else if (state.location == 1) {
           state.portPrompt = 1
-          state.allowedInput = [1, 'PORT3', 'B', 'S', 'V', 'T', 'Q']
+          state.allowedInput = hkServices
+            ? [1, 'PORT3', 'B', 'S', 'V', 'T', 'M', 'W', 'Q']
+            : [1, 'PORT3', 'B', 'S', 'V', 'T', 'Q']
         } else {
           state.portPrompt = 2
           state.allowedInput = [1, 'PORT3', 'B', 'S', 'Q']
         }
-        say(nodes(priceTable, portMenu(state.portPrompt), ' ', prompt))
+        say(nodes(priceTable, portMenu(state.portPrompt, hkServices), ' ', prompt))
         fnKeyInput()
         break
       }
@@ -830,11 +991,234 @@ export function startGame(
         else if (inputValue == 'S') state.nextLine = 'S1'
         else if (inputValue == 'V') state.nextLine = 'V1'
         else if (inputValue == 'T') state.nextLine = 2620
+        else if (inputValue == 'M' && isModern()) state.nextLine = 'HK-REPAIR'
+        else if (inputValue == 'W' && isModern()) state.nextLine = 'HK-WU'
         else if (inputValue == 'Q' && state.holdRoom < 0) state.nextLine = 'OVERLOAD'
         else if (inputValue == 'Q') state.nextLine = 'Q1'
         else if (inputValue == 'R') state.nextLine = 2695
         else state.nextLine = 'NOTYET'
         state.delayTicks = 0
+        break
+      case 'HK-REPAIR':
+        if (state.damage <= 0) {
+          say(
+            nodes(
+              comprador(),
+              cap('Mc'),
+              ' ',
+              cap('Henry'),
+              ' says yer ship needs no',
+              br,
+              'repairs, ',
+              taipan(),
+              '.'
+            )
+          )
+          fnKeyInput()
+          state.delayTicks = 8
+          state.nextLine = 'PORT2'
+          break
+        }
+        say(
+          nodes(
+            comprador(),
+            taipan(),
+            ', ',
+            cap('Mc'),
+            ' ',
+            cap('Henry'),
+            ' from the ',
+            cap('Hong'),
+            ' ',
+            cap('Kong'),
+            br,
+            cap('Shipyards'),
+            ' is here. ',
+            cap('He'),
+            " says, 'I see",
+            br,
+            "ye've a wee bit of damage to yer ship.",
+            br,
+            cap('Will'),
+            " ye be wanting repairs?' ",
+            prompt
+          )
+        )
+        state.allowedInput = [1, 'HK-REPAIR-YN', 'Y', 'N']
+        fnKeyInput()
+        break
+      case 'HK-REPAIR-YN':
+        if (inputValue == 'N') {
+          state.nextLine = 'PORT2'
+          state.delayTicks = 0
+          break
+        }
+        quoteRepairCost()
+      case 'HK-REPAIR-AMT':
+        say(repairSpendPrompt(modernRepairAdvice()))
+        state.allowedInput = [
+          9,
+          'HK-REPAIR-PAY',
+          'A',
+          '0',
+          '1',
+          '2',
+          '3',
+          '4',
+          '5',
+          '6',
+          '7',
+          '8',
+          '9'
+        ]
+        fnKeyInput()
+        break
+      case 'HK-REPAIR-PAY':
+        if (inputValue == 'A') {
+          amount = state.repairCost
+          if (state.cash < amount) amount = state.cash
+        } else amount = +inputValue
+        if (state.cash < amount) {
+          say(shortOfRepairCash())
+          fnKeyInput()
+          hideCursor()
+          state.delayTicks = 8
+          state.nextLine = 'HK-REPAIR-AMT'
+          break
+        }
+        applyRepairPayment(amount)
+        state.nextLine = 'PORT2'
+        state.delayTicks = 0
+        break
+      case 'HK-WU':
+        say(
+          nodes(
+            comprador(),
+            cap('Do'),
+            ' you have business with ',
+            cap('Elder'),
+            ' ',
+            cap('Brother'),
+            br,
+            cap('Wu'),
+            ', the moneylender? ',
+            prompt
+          )
+        )
+        state.allowedInput = [1, 'HK-WU-YN', 'Y', 'N']
+        fnKeyInput()
+        break
+      case 'HK-WU-YN':
+        if (inputValue == 'N') {
+          state.nextLine = 'PORT2'
+          state.delayTicks = 0
+          break
+        }
+        if (state.debt == 0 || state.cash == 0) {
+          state.nextLine = 'HK-WU-BORROW'
+          state.delayTicks = 0
+          break
+        }
+      case 'HK-WU-REPAY':
+        say(
+          nodes(
+            comprador(),
+            cap('How'),
+            ' much do you wish to repay',
+            br,
+            'him? ',
+            prompt,
+            br,
+            cap('Enter'),
+            ' 0 to borrow instead.'
+          )
+        )
+        state.allowedInput = [
+          9,
+          'HK-WU-REPAID',
+          'A',
+          '0',
+          '1',
+          '2',
+          '3',
+          '4',
+          '5',
+          '6',
+          '7',
+          '8',
+          '9'
+        ]
+        fnKeyInput()
+        break
+      case 'HK-WU-REPAID':
+        amount = inputValue == 'A' ? state.cash : +inputValue
+        if (state.cash >= amount) {
+          state.cash -= amount
+          state.debt -= amount
+        } else {
+          say(
+            nodes(
+              comprador(),
+              taipan(),
+              ', you have only ',
+              formatMoney(state.cash),
+              br,
+              'in cash.',
+              br,
+              cap('Enter'),
+              ' 0 if ye do not wish to repay.'
+            )
+          )
+          fnKeyInput()
+          hideCursor()
+          state.nextLine = 'HK-WU-REPAY'
+          state.delayTicks = 10
+          break
+        }
+      case 'HK-WU-BORROW':
+        say(wuBorrowPrompt())
+        state.allowedInput = [9, 'HK-WU-BORROWED', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        fnKeyInput()
+        break
+      case 'HK-WU-BORROWED':
+        i = +inputValue
+        if (i == 0) {
+          state.nextLine = 'PORT2'
+          state.delayTicks = 0
+          break
+        }
+        if (state.wuLoanTaken) {
+          say(wuAlreadyLent())
+          fnKeyInput()
+          hideCursor()
+          state.nextLine = 'HK-WU-BORROW'
+          state.delayTicks = 8
+          break
+        }
+        if (state.cash * 2 >= i) {
+          state.cash += i
+          state.debt += i
+          state.wuLoanTaken = 1
+          state.nextLine = 'PORT2'
+          state.delayTicks = 0
+          break
+        }
+        say(
+          nodes(
+            comprador(),
+            cap('He'),
+            " won't loan you so much, ",
+            taipan(),
+            '!',
+            br,
+            cap('Enter'),
+            ' 0 to return to port.'
+          )
+        )
+        fnKeyInput()
+        hideCursor()
+        state.nextLine = 'HK-WU-BORROW'
+        state.delayTicks = 8
         break
       case 'NEWSHIP1':
         state.allowedInput = [1, 'NEWSHIP2', 'Y', 'N']

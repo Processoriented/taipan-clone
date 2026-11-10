@@ -91,6 +91,21 @@ describe('isSaveFile', () => {
     expect(isSaveFile(save)).toBe(true)
     expect(state.gameMode).toBe('classic')
   })
+
+  it('migrates missing wuLoanTaken to 0', () => {
+    const state = createInitialState() as Record<string, unknown>
+    delete state.wuLoanTaken
+    const save: Record<string, unknown> = {
+      version: 2,
+      id: '01234567-89ab-cdef-0123-456789abcdef',
+      status: 'active',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+      summary: summaryOf(createInitialState()),
+      state
+    }
+    expect(isSaveFile(save)).toBe(true)
+    expect(state.wuLoanTaken).toBe(0)
+  })
 })
 
 describe('summaryOf', () => {

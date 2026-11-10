@@ -37,6 +37,7 @@ export type GameState = {
   goods: (string | number)[][]
   liFavor: number
   liDonation: number
+  wuLoanTaken: number
   enemyShips: number
   enemyShipsAtStart: number
   shipsOnScreen: number
@@ -100,6 +101,7 @@ const NUMBER_KEYS = [
   'pirateRarity',
   'liFavor',
   'liDonation',
+  'wuLoanTaken',
   'enemyShips',
   'enemyShipsAtStart',
   'shipsOnScreen',
@@ -203,6 +205,9 @@ function migrateState(value: Record<string, unknown>): void {
   delete value.priceTableHtml
   delete value.battleOrderHtml
   if (!isGameMode(value.gameMode)) value.gameMode = 'classic'
+  if (typeof value.wuLoanTaken !== 'number' || !Number.isFinite(value.wuLoanTaken)) {
+    value.wuLoanTaken = 0
+  }
   if (Array.isArray(value.goods)) {
     for (let i = 0; i < PLAIN_GOODS.length; i++) {
       const row = value.goods[i]
@@ -295,6 +300,7 @@ export function createInitialState(): GameState {
     goods: BASE_GOODS.map((row) => row.slice()),
     liFavor: 0,
     liDonation: 0,
+    wuLoanTaken: 0,
     enemyShips: 0,
     enemyShipsAtStart: 0,
     shipsOnScreen: 0,
