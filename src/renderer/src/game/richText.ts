@@ -67,7 +67,7 @@ export function cityNodes(index: number): RichNode[] {
   }
 }
 
-export function portMenu(promptIndex: number): RichNode[] {
+export function portMenu(promptIndex: number, services = false): RichNode[] {
   const buySell = [
     cap('Shall'),
     text(' '),
@@ -78,6 +78,25 @@ export function portMenu(promptIndex: number): RichNode[] {
     cap('Sell')
   ]
   if (promptIndex === 2) return [...buySell, text(', or '), cap('Quit'), text(' trading?')]
+  if (services) {
+    const modern = [
+      ...buySell,
+      text(', '),
+      cap('Transfer'),
+      text(' cargo, '),
+      cap('Visit'),
+      text(' bank, '),
+      cap('McHenry'),
+      text(', '),
+      cap('Wu'),
+      text(', '),
+      cap('Li'),
+      text(','),
+      br
+    ]
+    if (promptIndex === 1) return [...modern, text('or '), cap('Quit'), text(' trading?')]
+    return [...modern, cap('Quit'), text(' trading, or '), cap('Retire'), text('?')]
+  }
   const hongKong = [
     ...buySell,
     text(', '),

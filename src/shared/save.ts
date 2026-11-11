@@ -4,6 +4,7 @@ export type Line = number | string
 export type Choice = [number, Line, ...string[]]
 export type SaveStatus = 'active' | 'done'
 export type GameMode = 'classic' | 'modern'
+export type TributeAnswer = '' | 'paid' | 'refused'
 export type { GameView }
 
 export type GameSummary = {
@@ -37,6 +38,10 @@ export type GameState = {
   goods: (string | number)[][]
   liFavor: number
   liDonation: number
+  portService: boolean
+  sailedFromHongKong: boolean
+  tributeAnswer: TributeAnswer
+  tributeExit: Line
   enemyShips: number
   enemyShipsAtStart: number
   shipsOnScreen: number
@@ -203,6 +208,16 @@ function migrateState(value: Record<string, unknown>): void {
   delete value.priceTableHtml
   delete value.battleOrderHtml
   if (!isGameMode(value.gameMode)) value.gameMode = 'classic'
+  if (typeof value.portService !== 'boolean') value.portService = false
+  if (typeof value.sailedFromHongKong !== 'boolean') value.sailedFromHongKong = false
+  if (
+    value.tributeAnswer !== '' &&
+    value.tributeAnswer !== 'paid' &&
+    value.tributeAnswer !== 'refused'
+  ) {
+    value.tributeAnswer = ''
+  }
+  if (!isLine(value.tributeExit)) value.tributeExit = ''
   if (Array.isArray(value.goods)) {
     for (let i = 0; i < PLAIN_GOODS.length; i++) {
       const row = value.goods[i]
@@ -218,6 +233,16 @@ function isGameState(value: unknown): value is GameState {
     if (typeof value[key] !== 'number' || !Number.isFinite(value[key])) return false
   }
   if (!isGameMode(value.gameMode)) return false
+  if (typeof value.portService !== 'boolean') return false
+  if (typeof value.sailedFromHongKong !== 'boolean') return false
+  if (
+    value.tributeAnswer !== '' &&
+    value.tributeAnswer !== 'paid' &&
+    value.tributeAnswer !== 'refused'
+  ) {
+    return false
+  }
+  if (!isLine(value.tributeExit)) return false
   if (typeof value.firmName !== 'string') return false
   if (typeof value.inputText !== 'string') return false
   if (value.view !== undefined && !isGameView(value.view)) return false
@@ -295,6 +320,10 @@ export function createInitialState(): GameState {
     goods: BASE_GOODS.map((row) => row.slice()),
     liFavor: 0,
     liDonation: 0,
+    portService: false,
+    sailedFromHongKong: false,
+    tributeAnswer: '',
+    tributeExit: '',
     enemyShips: 0,
     enemyShipsAtStart: 0,
     shipsOnScreen: 0,

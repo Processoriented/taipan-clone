@@ -143,6 +143,48 @@ export function startGame(
     return state.gameMode === 'modern'
   }
 
+  function rollLiDonation(): void {
+    let donationBonus = 0
+    let donationScale = 1.8
+    if (state.monthsElapsed > 12) {
+      donationBonus = fR(1000 * state.monthsElapsed) + 1000 * state.monthsElapsed
+      donationScale = 1
+    }
+    state.liDonation = fR(state.cash / donationScale) + donationBonus
+  }
+
+  function tributePending(): boolean {
+    return isModern() && state.liDonation > 0 && state.tributeAnswer === '' && state.liFavor == 0
+  }
+
+  function endPortService(): void {
+    state.portService = false
+    state.nextLine = 'PORT2'
+    state.delayTicks = 0
+  }
+
+  function sayThenPort(list: RichNode[]): void {
+    state.portService = false
+    say(list)
+    fnKeyInput()
+    state.delayTicks = 10
+    state.nextLine = 'PORT2'
+  }
+
+  function returnFromTribute(): void {
+    state.tributeExit = ''
+    state.nextLine = 'PORT2'
+    state.delayTicks = 0
+  }
+
+  function endTribute(answer: 'paid' | 'refused'): void {
+    state.tributeAnswer = answer
+    const exit = state.tributeExit === '' ? 'PORT2' : state.tributeExit
+    state.tributeExit = ''
+    state.nextLine = exit
+    state.delayTicks = 0
+  }
+
   function battleDelay(classicTicks: number, modernTicks: number): number {
     return isModern() ? modernTicks : classicTicks
   }
@@ -438,14 +480,40 @@ export function startGame(
           state.delayTicks = 0
           break
         }
-        if (state.liFavor == 0 && state.cash > 0) {
-          let donationBonus = 0
-          let donationScale = 1.8
-          if (state.monthsElapsed > 12) {
-            donationBonus = fR(1000 * state.monthsElapsed) + 1000 * state.monthsElapsed
-            donationScale = 1
+        if (isModern()) {
+          state.tributeExit = ''
+          if (state.sailedFromHongKong && state.liFavor == 0 && state.cash > 0) {
+            rollLiDonation()
+            state.tributeAnswer = ''
+            say(
+              nodes(
+                comprador(),
+                cap('Li'),
+                ' ',
+                cap('Yuen'),
+                ' wants ',
+                formatMoney(state.liDonation),
+                ' in tribute',
+                br,
+                'before you leave, ',
+                taipan(),
+                '.'
+              )
+            )
+            state.allowedInput = false
+            fnKeyInput()
+            state.delayTicks = 8
+            state.nextLine = 1500
+            break
           }
-          state.liDonation = fR(state.cash / donationScale) + donationBonus
+          state.liDonation = 0
+          state.tributeAnswer = ''
+          state.nextLine = 1500
+          state.delayTicks = 0
+          break
+        }
+        if (state.liFavor == 0 && state.cash > 0) {
+          rollLiDonation()
           say(
             nodes(
               comprador(),
@@ -475,10 +543,18 @@ export function startGame(
           break
         }
       case 1060:
+        if (line == 1060 && inputValue == 'R' && isModern()) {
+          returnFromTribute()
+          break
+        }
         if (line == 1060 && inputValue == 'Y') {
           state.cash -= state.liDonation
           if (state.cash >= 0) {
             state.liFavor = 1
+            if (isModern() && state.tributeExit !== '') {
+              endTribute('paid')
+              break
+            }
           } else {
             say(
               nodes(
@@ -504,6 +580,9 @@ export function startGame(
             fnKeyInput()
             break
           }
+        } else if (line == 1060 && isModern() && state.tributeExit !== '') {
+          endTribute('refused')
+          break
         }
       case 1080:
         if (line == 1080) {
@@ -560,10 +639,19 @@ export function startGame(
           state.cash = 0
           fnKeyInput()
           state.delayTicks = 10
-          state.nextLine = 1120
+          if (isModern() && state.tributeExit !== '') {
+            state.tributeAnswer = inputValue == 'Y' ? 'paid' : 'refused'
+            state.nextLine = state.tributeExit
+            state.tributeExit = ''
+          } else state.nextLine = 1120
           break
         }
       case 1120:
+        if (isModern() && !state.portService) {
+          state.nextLine = 1500
+          state.delayTicks = 0
+          break
+        }
         if (state.location == 1 && state.damage > 0) {
           say(
             nodes(
@@ -593,6 +681,9 @@ export function startGame(
           state.allowedInput = [1, 1130, 'Y', 'N']
           fnKeyInput()
           break
+        } else if (state.portService) {
+          sayThenPort(nodes(comprador(), taipan(), ', yer ship needs no repairs.'))
+          break
         } else {
           state.nextLine = 1210
           state.delayTicks = 0
@@ -600,8 +691,42 @@ export function startGame(
         }
       case 1130:
         if (inputValue == 'N') {
+          if (state.portService) {
+            endPortService()
+            break
+          }
           state.nextLine = 1210
           state.delayTicks = 0
+          break
+        }
+        if (state.portService && state.cash <= 0) {
+          sayThenPort(
+            state.bank > 0
+              ? nodes(
+                  comprador(),
+                  taipan(),
+                  ', you have no cash on hand!!',
+                  br,
+                  cap('Visit'),
+                  ' the bank, then ask ',
+                  cap('Mc'),
+                  ' ',
+                  cap('Henry'),
+                  ' again.'
+                )
+              : nodes(
+                  comprador(),
+                  taipan(),
+                  ', you have no cash on hand!!',
+                  br,
+                  cap('Elder'),
+                  ' ',
+                  cap('Brother'),
+                  ' ',
+                  cap('Wu'),
+                  ' will not lend without cash.'
+                )
+          )
           break
         }
       case 1140:
@@ -651,6 +776,10 @@ export function startGame(
           state.damage = damageRepaired <= state.damage ? state.damage - damageRepaired : 0
         }
         state.cash -= amount
+        if (state.portService) {
+          endPortService()
+          break
+        }
       case 1210:
       case 1300:
         if (state.location == 1) {
@@ -671,6 +800,9 @@ export function startGame(
           state.allowedInput = [1, 1310, 'Y', 'N']
           fnKeyInput()
           break
+        } else if (state.portService) {
+          endPortService()
+          break
         } else {
           state.nextLine = 1500
           state.delayTicks = 0
@@ -678,6 +810,10 @@ export function startGame(
         }
       case 1310:
         if (inputValue == 'N') {
+          if (state.portService) {
+            endPortService()
+            break
+          }
           state.nextLine = 1500
           state.delayTicks = 0
           break
@@ -708,6 +844,20 @@ export function startGame(
           break
         }
       case 1400:
+        if (state.portService && state.cash <= 0) {
+          sayThenPort(
+            nodes(
+              comprador(),
+              cap('He'),
+              " won't loan you without cash on hand, ",
+              taipan(),
+              '! ',
+              cap('Visit'),
+              ' the bank first.'
+            )
+          )
+          break
+        }
         say(nodes(comprador(), cap('How'), ' much do you wish to', br, 'borrow? ', prompt))
         state.allowedInput = [9, 1420, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
         fnKeyInput()
@@ -717,6 +867,10 @@ export function startGame(
         if (state.cash * 2 >= i) {
           state.cash += i
           state.debt += i
+          if (state.portService) {
+            endPortService()
+            break
+          }
         } else {
           add(nodes(br, br, br, cap('He'), " won't loan you so much, ", taipan(), '!'))
           state.nextLine = 1400
@@ -811,17 +965,22 @@ export function startGame(
         }
       case 'R-ROBBED':
       case 'PORT2': {
+        const hongKongServices = isModern() && state.location == 1
         if (state.location == 1 && state.cash + state.bank >= 1e6) {
           state.portPrompt = 0
-          state.allowedInput = [1, 'PORT3', 'B', 'S', 'V', 'T', 'R', 'Q']
+          state.allowedInput = hongKongServices
+            ? [1, 'PORT3', 'B', 'S', 'T', 'V', 'M', 'W', 'L', 'Q', 'R']
+            : [1, 'PORT3', 'B', 'S', 'V', 'T', 'R', 'Q']
         } else if (state.location == 1) {
           state.portPrompt = 1
-          state.allowedInput = [1, 'PORT3', 'B', 'S', 'V', 'T', 'Q']
+          state.allowedInput = hongKongServices
+            ? [1, 'PORT3', 'B', 'S', 'T', 'V', 'M', 'W', 'L', 'Q']
+            : [1, 'PORT3', 'B', 'S', 'V', 'T', 'Q']
         } else {
           state.portPrompt = 2
           state.allowedInput = [1, 'PORT3', 'B', 'S', 'Q']
         }
-        say(nodes(priceTable, portMenu(state.portPrompt), ' ', prompt))
+        say(nodes(priceTable, portMenu(state.portPrompt, hongKongServices), ' ', prompt))
         fnKeyInput()
         break
       }
@@ -830,11 +989,78 @@ export function startGame(
         else if (inputValue == 'S') state.nextLine = 'S1'
         else if (inputValue == 'V') state.nextLine = 'V1'
         else if (inputValue == 'T') state.nextLine = 2620
+        else if (inputValue == 'M') {
+          state.portService = true
+          state.nextLine = 1120
+        } else if (inputValue == 'W') {
+          state.portService = true
+          state.nextLine = 1210
+        } else if (inputValue == 'L') state.nextLine = 'LI'
         else if (inputValue == 'Q' && state.holdRoom < 0) state.nextLine = 'OVERLOAD'
-        else if (inputValue == 'Q') state.nextLine = 'Q1'
+        else if (inputValue == 'Q' && tributePending()) {
+          state.tributeExit = 'Q1'
+          state.nextLine = 'LI-ASK'
+        } else if (inputValue == 'Q') state.nextLine = 'Q1'
         else if (inputValue == 'R') state.nextLine = 2695
         else state.nextLine = 'NOTYET'
         state.delayTicks = 0
+        break
+      case 'LI':
+        if (state.liFavor > 0) {
+          sayThenPort(
+            nodes(comprador(), cap('Li'), ' ', cap('Yuen'), ' is satisfied, ', taipan(), '.')
+          )
+          break
+        }
+        if (state.liDonation <= 0) {
+          sayThenPort(
+            nodes(
+              comprador(),
+              cap('Li'),
+              ' ',
+              cap('Yuen'),
+              ' is not demanding tribute, ',
+              taipan(),
+              '.'
+            )
+          )
+          break
+        }
+        state.tributeExit = 'PORT2'
+      case 'LI-ASK':
+        say(
+          nodes(
+            comprador(),
+            cap('Li'),
+            ' ',
+            cap('Yuen'),
+            ' asks ',
+            formatMoney(state.liDonation),
+            ' in donation',
+            br,
+            'to the temple of ',
+            cap('Tin'),
+            ' ',
+            cap('Hau'),
+            ', the ',
+            cap('Sea'),
+            br,
+            cap('Goddess'),
+            '. ',
+            cap('Will'),
+            ' you pay? ',
+            br,
+            cap('Y'),
+            ', ',
+            cap('N'),
+            ', or ',
+            cap('Return'),
+            ' ',
+            prompt
+          )
+        )
+        state.allowedInput = [1, 1060, 'Y', 'N', 'R']
+        fnKeyInput()
         break
       case 'NEWSHIP1':
         state.allowedInput = [1, 'NEWSHIP2', 'Y', 'N']
@@ -1256,6 +1482,7 @@ export function startGame(
           break
         }
       case 3030:
+        if (Number(state.location) == 1) state.sailedFromHongKong = true
         say(captain())
         ensureView().atSea = true
         state.location = inputValue
