@@ -56,4 +56,23 @@ describe('portMenu', () => {
       .join('')
     expect(retire).toContain('Retire')
   })
+
+  it('offers Hong Kong services in Modern', () => {
+    const hongKong = portMenu(1, true)
+      .map((node) => ('text' in node ? node.text : ''))
+      .join('')
+    expect(hongKong).toContain('Transfer')
+    expect(hongKong).toContain('Visit')
+    expect(hongKong).toContain('McHenry')
+    expect(hongKong).toContain('Wu')
+    expect(hongKong).toContain('Li')
+    expect(hongKong).toContain('Quit')
+    expect(hongKong).not.toContain('Retire')
+
+    const retire = portMenu(0, true)
+      .map((node) => ('text' in node ? node.text : ''))
+      .join('')
+    expect(retire).toContain('Li')
+    expect(retire).toContain('Retire')
+  })
 })

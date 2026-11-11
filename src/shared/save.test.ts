@@ -91,6 +91,27 @@ describe('isSaveFile', () => {
     expect(isSaveFile(save)).toBe(true)
     expect(state.gameMode).toBe('classic')
   })
+
+  it('migrates missing Hong Kong service fields', () => {
+    const state = createInitialState() as Record<string, unknown>
+    delete state.portService
+    delete state.sailedFromHongKong
+    delete state.tributeAnswer
+    delete state.tributeExit
+    const save: Record<string, unknown> = {
+      version: 2,
+      id: '01234567-89ab-cdef-0123-456789abcdef',
+      status: 'active',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+      summary: summaryOf(createInitialState()),
+      state
+    }
+    expect(isSaveFile(save)).toBe(true)
+    expect(state.portService).toBe(false)
+    expect(state.sailedFromHongKong).toBe(false)
+    expect(state.tributeAnswer).toBe('')
+    expect(state.tributeExit).toBe('')
+  })
 })
 
 describe('summaryOf', () => {
